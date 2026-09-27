@@ -1,0 +1,30 @@
+services:
+  api:
+    build: ./backend
+    container_name: pepperbox_api
+    environment:
+      SHELLY_HOST: ${SHELLY_HOST:-192.168.1.102}
+      SHELLY_SWITCH_ID: ${SHELLY_SWITCH_ID:-0}
+      PRICE_PER_KWH: ${PRICE_PER_KWH:-0.2016}
+    volumes:
+      - state:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    build: ./frontend
+    container_name: pepperbox_web
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:${PORT:-8080}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  state:

@@ -1,0 +1,482 @@
+:root {
+  --bg: #121417;
+  --panel: #1a1d21;
+  --raise: #23272c;
+  --line: #31363d;
+  --muted: #8b939c;
+  --text: #e8eaec;
+  --neon: #ff2340;
+
+  --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ---- Enveloppe : la lueur de la lampe baigne la page ---- */
+
+.app {
+  position: relative;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) 20px
+    max(28px, env(safe-area-inset-bottom));
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    70% 42% at 50% 0%,
+    rgba(255, 35, 64, 0.17),
+    transparent 72%
+  );
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.app.is-on::before {
+  opacity: 1;
+}
+
+.app > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- En-tete ---- */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  height: 26px;
+  width: auto;
+  flex: none;
+}
+
+.telemetry__note {
+  padding: 0 0 14px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.masthead__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.masthead__host {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.link--online .link__dot {
+  background: var(--neon);
+  box-shadow: 0 0 8px rgba(255, 35, 64, 0.9);
+}
+
+.link--loading .link__dot {
+  background: var(--muted);
+}
+
+/* ---- Grille de la console ---- */
+
+.console {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+@media (min-width: 900px) {
+  .console {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+  }
+}
+
+.rail {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.lamp,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.lamp {
+  padding: 24px;
+}
+
+.lamp__title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* ---- La rampe : le seul element qui prend la parole ---- */
+
+.fixture {
+  position: relative;
+  margin: 18px 0 4px;
+  padding-bottom: 48px;
+}
+
+.fixture__bar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  grid-auto-rows: 1fr;
+  gap: 4px;
+  height: 94px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2b3037 0%, #171a1e 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.fixture__led {
+  border-radius: 3px;
+  background: linear-gradient(180deg, #343a41 0%, #23272c 55%, #2b3036 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background 0.45s ease, box-shadow 0.45s ease;
+}
+
+.fixture.is-on .fixture__led {
+  background: var(--neon);
+  box-shadow:
+    inset 0 0 6px rgba(255, 255, 255, 0.55),
+    0 0 12px rgba(255, 35, 64, 0.85),
+    0 0 34px rgba(255, 35, 64, 0.4);
+}
+
+.fixture__cast {
+  position: absolute;
+  inset: auto 5% 0 5%;
+  height: 48px;
+  filter: blur(7px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background: radial-gradient(
+    58% 100% at 50% 0%,
+    rgba(255, 35, 64, 0.5),
+    rgba(255, 35, 64, 0) 72%
+  );
+}
+
+.fixture.is-on .fixture__cast {
+  opacity: 1;
+}
+
+/* ---- Releve principal ---- */
+
+.lamp__readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 22px;
+}
+
+.lamp__power {
+  font-family: var(--mono);
+  font-size: clamp(2.75rem, 11vw, 4rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lamp__unit {
+  margin-left: 0.18em;
+  font-size: 0.32em;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.lamp__since {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* ---- Commande ---- */
+
+.switch {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.22s ease, border-color 0.22s ease,
+    box-shadow 0.22s ease, color 0.22s ease;
+}
+
+.switch:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.switch:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.app.is-on .switch {
+  background: var(--neon);
+  border-color: var(--neon);
+  color: #16060a;
+  box-shadow: 0 10px 32px -10px rgba(255, 35, 64, 0.75);
+}
+
+.app.is-on .switch:hover:not(:disabled) {
+  background: #ff3b53;
+  border-color: #ff3b53;
+}
+
+.switch:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* ---- Telemetrie : une liste de valeurs, pas quatre cartes ---- */
+
+.panel {
+  padding: 6px 20px;
+}
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.reading:last-child {
+  border-bottom: 0;
+}
+
+.reading__label {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.reading__value {
+  font-family: var(--mono);
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reading__unit {
+  margin-left: 0.35em;
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+/* ---- Erreur ---- */
+
+.alert {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 35, 64, 0.45);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: rgba(255, 35, 64, 0.07);
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.alert strong {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Programme ---- */
+
+.program {
+  padding: 20px;
+}
+
+.program__title {
+  margin-bottom: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.field label {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.field input[type='time'] {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--raise);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.field input[type='time']:focus-visible {
+  border-color: var(--neon);
+}
+
+.field--check {
+  justify-content: flex-start;
+  gap: 10px;
+  border-bottom: 0;
+}
+
+.field--check label {
+  color: var(--text);
+}
+
+.field input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--neon);
+  flex: none;
+}
+
+.program__save {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--raise);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.program__save:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.program__save:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.program__hint {
+  margin-top: 12px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
