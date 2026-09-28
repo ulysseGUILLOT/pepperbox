@@ -1,14 +1,25 @@
-from datetime import datetime
+import logging
 
 from flask import Flask, jsonify, request
 
+from . import presence as pres
 from . import schedule as sched
+from .clock import now_local
 from .config import Config
 from .db import Settings
+from .ratelimit import RateLimiter, client_ip
 from .shelly import ShellyError, ShellyPlug
+from .supervisor import Supervisor
 
 
 def create_app():
+    # Sans cela, les decisions du superviseur (niveau INFO) n'apparaissent
+    # nulle part : une automatisation qui agit seule doit etre tracable.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
     app = Flask(__name__)
     app.config.from_object(Config)
 
@@ -18,9 +29,10 @@ def create_app():
         timeout=app.config["SHELLY_TIMEOUT"],
     )
     settings = Settings(app.config["DB_PATH"])
+    supervisor = Supervisor(lamp, settings,
+                            interval=app.config["PRESENCE_INTERVAL"])
+    limiter = RateLimiter(max_hits=app.config["PRESENCE_RATE_LIMIT"], window=60.0)
 
-    # Au demarrage, on realigne la prise sur le reglage enregistre : elle a pu
-    # etre remise a zero, ou le programme modifie depuis l'application Shelly.
     current = sched.load(settings)
     settings.set(sched.KEY, current)   # materialise le defaut au premier lancement
     try:
@@ -28,12 +40,16 @@ def create_app():
     except ShellyError as exc:
         app.logger.warning("programme non applique au demarrage: %s", exc)
 
+    settings.set(pres.KEY, pres.load(settings))
+    supervisor.start()
+
     def enrich(status):
         price = app.config["PRICE_PER_KWH"]
         return {
             **status,
             "price_per_kwh": price,
             "cost_eur": status["energy_wh"] / 1000 * price,
+            "presence": supervisor.snapshot(),
         }
 
     @app.errorhandler(ShellyError)
@@ -47,6 +63,12 @@ def create_app():
     @app.errorhandler(sched.InvalidSchedule)
     def _invalid_schedule(exc):
         return jsonify({"error": "programme_invalide", "message": str(exc)}), 400
+
+    @app.errorhandler(pres.InvalidPresence)
+    def _invalid_presence(exc):
+        return jsonify({"error": "presence_invalide", "message": str(exc)}), 400
+
+    # ---- lampe ----
 
     @app.get("/api/health")
     def health():
@@ -64,11 +86,17 @@ def create_app():
                 "error": "requete_invalide",
                 "message": "Le corps doit contenir un booleen 'on'.",
             }), 400
-        return jsonify(enrich(lamp.set(payload["on"])))
+        status = lamp.set(payload["on"])
+        supervisor.mark_manual(status["on"])
+        return jsonify(enrich(status))
 
     @app.post("/api/lamp/toggle")
     def toggle_lamp():
-        return jsonify(enrich(lamp.toggle()))
+        status = lamp.toggle()
+        supervisor.mark_manual(status["on"])
+        return jsonify(enrich(status))
+
+    # ---- programme ----
 
     @app.get("/api/schedule")
     def get_schedule():
@@ -79,14 +107,53 @@ def create_app():
         new = sched.parse(request.get_json(silent=True))
         sched.apply(lamp, settings, new)
         settings.set(sched.KEY, new)
-
-        # Le programme ne se declenche qu'aux bornes : on met la lampe tout de
-        # suite dans l'etat qu'il impose, sinon il faut attendre le prochain
-        # basculement pour que l'enregistrement produise un effet visible.
         if new["enabled"]:
-            lamp.set(sched.should_be_on(new, datetime.now()))
-
+            # La priorite a la presence prime sur l'application immediate :
+            # enregistrer un horaire ne doit pas rallumer la lampe alors
+            # qu'on est chez soi en plage de silence.
+            desired = sched.should_be_on(new, now_local())
+            if desired and supervisor.is_overriding():
+                desired = False
+            lamp.set(desired)
+            supervisor.mark_auto(desired)
+        supervisor.nudge()
         return jsonify(new)
+
+    # ---- presence (reseau local uniquement) ----
+
+    @app.get("/api/presence")
+    def get_presence():
+        return jsonify(supervisor.snapshot())
+
+    @app.put("/api/presence")
+    def put_presence():
+        new = pres.parse(request.get_json(silent=True))
+        settings.set(pres.KEY, new)
+        supervisor.nudge()
+        return jsonify(supervisor.snapshot())
+
+    @app.post("/api/presence/token")
+    def new_presence_token():
+        """Renvoie le jeton en clair une seule fois ; seule son empreinte
+        est conservee."""
+        return jsonify({"token": pres.issue_token(settings)})
+
+    # ---- presence : unique route exposee sur Internet ----
+
+    @app.post("/api/presence/event")
+    def presence_event():
+        if not limiter.allow(client_ip(request)):
+            return jsonify({"error": "trop_de_requetes"}), 429
+
+        token = pres.bearer_from(request.headers.get("Authorization"))
+        if not pres.token_matches(settings, token):
+            # Aucune precision : ne pas indiquer si c'est le jeton ou le corps.
+            return jsonify({"error": "non_autorise"}), 401
+
+        event = pres.parse_event(request.get_json(silent=True))
+        supervisor.record(event["home"], event["at"])
+        state = supervisor.snapshot()
+        return jsonify({"home": state["home"], "overriding": state["overriding"]})
 
     return app
 

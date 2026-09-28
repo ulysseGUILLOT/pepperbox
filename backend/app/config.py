@@ -16,3 +16,7 @@ class Config:
     # Base des reglages, sur un volume Docker pour survivre au
     # remplacement du conteneur.
     DB_PATH = os.getenv("DB_PATH", "/data/pepperbox.db")
+
+    # Priorite a la presence.
+    PRESENCE_INTERVAL = float(os.getenv("PRESENCE_INTERVAL", "30"))
+    PRESENCE_RATE_LIMIT = int(os.getenv("PRESENCE_RATE_LIMIT", "10"))

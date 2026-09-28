@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getLamp, setLamp } from './api.js'
 import Fixture from './components/Fixture.jsx'
 import Mark from './components/Mark.jsx'
-import Schedule from './components/Schedule.jsx'
+import Presence from './components/Presence.jsx'
+import Program from './components/Program.jsx'
 import StatusDot from './components/StatusDot.jsx'
 import Telemetry from './components/Telemetry.jsx'
 
@@ -128,9 +129,11 @@ export default function App() {
           <div className="panel">
             <Telemetry status={error ? null : status} />
           </div>
-          <Schedule onApplied={() => refresh()} />
+          <Presence state={status?.presence} onChange={() => refresh()} />
         </aside>
       </main>
+
+      <Program onApplied={() => refresh()} />
 
       {error && (
         <p className="alert" role="alert">

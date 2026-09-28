@@ -83,6 +83,9 @@ class ShellyPlug:
                 "temperature_c": round(float(s["temperature"]["tC"]), 1),
                 "energy_wh": round(float(s["aenergy"]["total"]), 3),
                 "for_seconds": max(0.0, time.time() - changed_at),
+                # Origine du dernier changement : distingue un allumage
+                # humain d'un declenchement du programme interne.
+                "source": s.get("source"),
                 "host": self.host,
             }
         except (KeyError, TypeError, ValueError) as exc:

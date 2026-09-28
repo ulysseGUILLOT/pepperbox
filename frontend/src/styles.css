@@ -419,20 +419,6 @@ button {
   color: var(--muted);
 }
 
-.field input[type='time'] {
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--raise);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.field input[type='time']:focus-visible {
-  border-color: var(--neon);
-}
 
 .field--check {
   justify-content: flex-start;
@@ -479,4 +465,224 @@ button {
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* ---- Presence ---- */
+
+.presence__state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 0 4px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.presence__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  flex: none;
+}
+
+.presence__state[data-home='true'] {
+  color: var(--text);
+}
+
+.presence__state[data-home='true'] .presence__dot {
+  background: var(--neon);
+  box-shadow: 0 0 8px rgba(255, 35, 64, 0.9);
+}
+
+.token {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.token__button {
+  font-size: 0.875rem;
+  min-height: 40px;
+}
+
+.token__value {
+  display: block;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--neon);
+  border-radius: 7px;
+  background: var(--raise);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  word-break: break-all;
+  user-select: all;
+}
+
+/* ---- Frise horaire ---- */
+
+.program--wide {
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.timeline {
+  margin: 18px 0 4px;
+}
+
+.timeline__axis {
+  position: relative;
+  height: 16px;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.timeline__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.timeline__row {
+  margin-bottom: 18px;
+}
+
+.timeline__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.timeline__label {
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.timeline__range {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline__length {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.timeline__track {
+  position: relative;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: linear-gradient(180deg, #202429 0%, #171a1e 100%);
+  /* Indispensable au doigt : sans cela le navigateur fait defiler la page. */
+  touch-action: none;
+}
+
+.timeline__segment {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 5px;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.timeline__track[data-kind='light'] .timeline__segment {
+  background: linear-gradient(180deg, #ff3b53 0%, var(--neon) 100%);
+  box-shadow: 0 0 16px rgba(255, 35, 64, 0.4);
+}
+
+/* Le silence n'est pas une couleur de plus : c'est une matiere rayee, pour
+   rester dans le systeme gris + rouge. */
+.timeline__track[data-kind='quiet'] .timeline__segment {
+  background: repeating-linear-gradient(
+    -45deg,
+    #3c424a 0 5px,
+    #2a2f35 5px 10px
+  );
+}
+
+.timeline__track[data-idle='true'] .timeline__segment {
+  opacity: 0.28;
+  box-shadow: none;
+}
+
+.timeline__now {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--text);
+  opacity: 0.5;
+}
+
+.timeline__handle {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 30px;               /* zone de prise large pour le doigt */
+  margin-left: -15px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.timeline__handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 3px;
+  background: var(--text);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.timeline__handle:hover::before,
+.timeline__handle:focus-visible::before {
+  background: var(--neon);
+  box-shadow: 0 0 10px rgba(255, 35, 64, 0.8);
+}
+
+.timeline__handle:focus-visible {
+  outline: none;
+}
+
+.program__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.program__controls .field--check {
+  padding: 6px 0;
+}
+
+.program__save--inline {
+  width: auto;
+  min-width: 150px;
+  margin-left: auto;
+  min-height: 40px;
+}
+
+@media (max-width: 560px) {
+  .program__save--inline {
+    width: 100%;
+    margin-left: 0;
+  }
 }

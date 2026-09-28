@@ -6,6 +6,8 @@ services:
       SHELLY_HOST: ${SHELLY_HOST:-192.168.1.102}
       SHELLY_SWITCH_ID: ${SHELLY_SWITCH_ID:-0}
       PRICE_PER_KWH: ${PRICE_PER_KWH:-0.2016}
+      LOCAL_TZ: ${LOCAL_TZ:-Europe/Paris}
+      TZ: ${LOCAL_TZ:-Europe/Paris}
     volumes:
       - state:/data
     restart: unless-stopped

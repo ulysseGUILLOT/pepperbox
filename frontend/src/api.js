@@ -19,3 +19,11 @@ export const getSchedule = (signal) => request('/api/schedule', { signal })
 
 export const saveSchedule = (schedule) =>
   request('/api/schedule', { method: 'PUT', body: JSON.stringify(schedule) })
+
+export const getPresence = (signal) => request('/api/presence', { signal })
+
+export const savePresence = (presence) =>
+  request('/api/presence', { method: 'PUT', body: JSON.stringify(presence) })
+
+export const issuePresenceToken = () =>
+  request('/api/presence/token', { method: 'POST' })
