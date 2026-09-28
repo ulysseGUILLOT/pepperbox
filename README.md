@@ -13,7 +13,8 @@ la présence pour ne pas éclairer l'appartement le soir quand on y est.
 |---|---|
 | `backend/` | API Flask, superviseur de présence, réglages SQLite |
 | `frontend/` | Tableau de bord React (Vite), servi par nginx |
-| `dev/shelly-mock/` | Fausse prise pour le développement |
+| `simulator/` | Box virtuelle : fausse prise, lampe, téléphone simulé |
+| `scripts/` | Vérification des scénarios contre le simulateur |
 | `deploy/` | Script de déploiement et vhosts Apache de la production |
 
 Trois choix structurants :
@@ -29,16 +30,42 @@ Trois choix structurants :
 ## Développement
 
     cp .env.example .env
-    docker compose up -d --build        # http://localhost:8080
+    docker compose up -d --build
 
-`docker-compose.override.yml` est chargé automatiquement : le backend parle à
-une **fausse prise** (`dev/shelly-mock`). C'est voulu — la vraie est joignable
+| Adresse | Rôle |
+|---|---|
+| http://localhost:8080 | Tableau de bord Pepperbox |
+| http://localhost:8090 | Simulateur : la box virtuelle et ses commandes |
+| http://localhost:8001 | API seule, pour `npm run dev` |
+
+`docker-compose.override.yml` est chargé automatiquement : le backend parle au
+**simulateur**, jamais à la vraie prise. C'est voulu — la vraie est joignable
 depuis un poste de dev, et une instance locale se battrait avec la production
 pour la lampe en posant ses propres programmes sur la prise.
 
 Front avec rechargement à chaud, le backend restant dans son conteneur :
 
     cd frontend && npm ci && npm run dev
+
+### Simulateur
+
+Il simule **au niveau du protocole de l'appareil** : le backend tourne tel
+qu'en production, sans savoir qu'il parle à un faux. Depuis sa page on peut :
+
+- voir la lampe s'allumer dans la box ;
+- appuyer sur le bouton physique de la prise ;
+- couper la prise du réseau ;
+- déclarer « j'arrive » ou « je pars », comme le ferait le raccourci iOS ;
+- lire les programmes posés sur la prise et le journal des événements.
+
+Les programmes sont réellement exécutés, à l'heure locale. Trois comportements
+du vrai matériel y sont reproduits parce que le backend en dépend (voir
+`simulator/app/world.py`). Toute nouvelle surprise de la vraie prise doit y
+être reportée, sinon le simulateur rassure à tort.
+
+Vérification des scénarios, environ six minutes en temps réel :
+
+    python3 scripts/check_simulator.py
 
 ## Déploiement
 

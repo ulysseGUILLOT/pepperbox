@@ -1,21 +1,27 @@
 # Surcharge de developpement, chargee automatiquement par `docker compose up`.
 # La production l'ignore : elle nomme ses fichiers explicitement (-f).
 #
-# Le backend parle ici a une fausse prise. La vraie est joignable depuis un
-# poste de dev : une instance locale se battrait avec la production pour la
-# lampe et poserait ses propres programmes en double sur la prise.
+# Le backend parle ici au simulateur, jamais a la vraie prise. Celle-ci est
+# joignable depuis un poste de dev : une instance locale se battrait avec la
+# production pour la lampe et poserait ses propres programmes en double.
 services:
-  shelly-mock:
-    build: ./dev/shelly-mock
-    container_name: pepperbox_shelly_mock
+  simulator:
+    build: ./simulator
+    container_name: pepperbox_simulator
+    environment:
+      PEPPERBOX_API: http://api:8000
+      LOCAL_TZ: ${LOCAL_TZ:-Europe/Paris}
+      TZ: ${LOCAL_TZ:-Europe/Paris}
+    ports:
+      - "127.0.0.1:8090:8000"   # la box virtuelle et ses commandes
 
   api:
     environment:
-      SHELLY_HOST: shelly-mock:8000
+      SHELLY_HOST: simulator:8000
     ports:
-      - "127.0.0.1:8000:8000"   # pour `npm run dev`, que Vite proxifie ici
+      - "127.0.0.1:8001:8000"   # pour `npm run dev` ; le 8000 est souvent pris
     depends_on:
-      - shelly-mock
+      - simulator
 
   web:
     ports: !override

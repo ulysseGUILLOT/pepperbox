@@ -6,6 +6,6 @@ export default defineConfig({
   server: {
     host: true,
     // En dev (npm run dev), les appels /api partent vers le backend Flask.
-    proxy: { '/api': 'http://localhost:8000' },
+    proxy: { '/api': 'http://localhost:8001' },
   },
 })

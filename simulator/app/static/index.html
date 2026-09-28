@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulateur Pepperbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/sim.css" />
+</head>
+<body>
+  <header class="bar">
+    <div>
+      <h1>Simulateur Pepperbox</h1>
+      <p class="bar__note">Aucun matériel réel n’est piloté depuis cette page.</p>
+    </div>
+    <div class="bar__side">
+      <span class="clock" id="clock">--:--:--</span>
+      <a href="http://localhost:8080" target="_blank" rel="noopener">Ouvrir le tableau de bord</a>
+    </div>
+  </header>
+
+  <main class="bench">
+    <section class="stage" aria-label="La box virtuelle">
+      <svg id="box" class="box" data-on="false" viewBox="0 0 400 440" role="img"
+           aria-labelledby="box-title">
+        <title id="box-title">Box de culture : lampe éteinte</title>
+        <defs>
+          <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ff2340" stop-opacity="0.55" />
+            <stop offset="1" stop-color="#ff2340" stop-opacity="0.04" />
+          </linearGradient>
+          <symbol id="pepper" viewBox="0 0 32 32">
+            <path d="M12.9 10.6C11.4 16.2 12.5 23.6 13.6 28.8C15.2 23.6 20.2 16.2 19.1 10.6C17.6 8.8 14.4 8.8 12.9 10.6Z" fill="#e0182f" />
+            <path d="M16 9.6C15.8 7.6 15.9 6 16 4" stroke="#3f7d4a" stroke-width="2" stroke-linecap="round" fill="none" />
+          </symbol>
+        </defs>
+
+        <rect class="tent" x="20" y="20" width="360" height="400" rx="14" />
+        <line class="cable" x1="200" y1="20" x2="200" y2="44" />
+
+        <polygon class="beam" points="96,66 304,66 366,412 34,412" fill="url(#beam)" />
+
+        <g class="plant">
+          <path d="M150 352 L250 352 L239 404 L161 404 Z" fill="#4a4f56" />
+          <ellipse cx="200" cy="352" rx="50" ry="8" fill="#2c231d" />
+          <path d="M200 350 C197 312 204 282 200 226" stroke="#3f7d4a" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M200 304 C182 294 166 282 150 262" stroke="#3f7d4a" stroke-width="3.5" stroke-linecap="round" fill="none" />
+          <path d="M200 282 C222 272 238 258 254 238" stroke="#3f7d4a" stroke-width="3.5" stroke-linecap="round" fill="none" />
+          <path d="M200 252 C189 240 179 226 172 206" stroke="#3f7d4a" stroke-width="3" stroke-linecap="round" fill="none" />
+          <ellipse cx="143" cy="254" rx="20" ry="9" transform="rotate(38 143 254)" fill="#4c9459" />
+          <ellipse cx="262" cy="230" rx="21" ry="9" transform="rotate(-42 262 230)" fill="#4c9459" />
+          <ellipse cx="168" cy="196" rx="18" ry="8" transform="rotate(64 168 196)" fill="#4c9459" />
+          <ellipse cx="204" cy="214" rx="19" ry="8" transform="rotate(-80 204 214)" fill="#57a566" />
+          <ellipse cx="226" cy="286" rx="15" ry="6" transform="rotate(-18 226 286)" fill="#4c9459" />
+          <use href="#pepper" x="146" y="262" width="34" height="34" />
+          <use href="#pepper" x="222" y="250" width="38" height="38" />
+          <use href="#pepper" x="178" y="296" width="30" height="30" />
+        </g>
+
+        <g class="fixture">
+          <rect class="fixture__body" x="90" y="44" width="220" height="22" rx="6" />
+          <g class="fixture__leds">
+            <rect x="100" y="50" width="16" height="10" rx="2" />
+            <rect x="121" y="50" width="16" height="10" rx="2" />
+            <rect x="142" y="50" width="16" height="10" rx="2" />
+            <rect x="163" y="50" width="16" height="10" rx="2" />
+            <rect x="184" y="50" width="16" height="10" rx="2" />
+            <rect x="205" y="50" width="16" height="10" rx="2" />
+            <rect x="226" y="50" width="16" height="10" rx="2" />
+            <rect x="247" y="50" width="16" height="10" rx="2" />
+            <rect x="268" y="50" width="16" height="10" rx="2" />
+            <rect x="289" y="50" width="11" height="10" rx="2" />
+          </g>
+        </g>
+      </svg>
+
+      <p class="stage__caption">
+        <span id="lamp-state">Lampe éteinte</span>
+        <span class="stage__figures" id="lamp-figures">0 W</span>
+      </p>
+    </section>
+
+    <div class="controls">
+      <section class="card">
+        <h2>Prise</h2>
+        <dl class="facts">
+          <div><dt>Dernier changement par</dt><dd id="source">—</dd></div>
+          <div><dt>Énergie consommée</dt><dd id="energy">—</dd></div>
+        </dl>
+        <button type="button" class="action" id="btn-button">Appuyer sur le bouton de la prise</button>
+        <label class="check">
+          <input type="checkbox" id="chk-offline" />
+          Couper la prise du réseau
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Téléphone</h2>
+        <p class="hint">Envoie au serveur ce qu’enverrait le raccourci iOS.</p>
+        <div class="pair">
+          <button type="button" class="action" id="btn-home">J’arrive</button>
+          <button type="button" class="action" id="btn-away">Je pars</button>
+        </div>
+        <p class="hint" id="phone-result">Rien n’a encore été envoyé.</p>
+      </section>
+
+      <section class="card">
+        <h2>Programmes posés sur la prise</h2>
+        <ul class="list" id="jobs"><li class="list__empty">Aucun programme.</li></ul>
+      </section>
+    </div>
+
+    <section class="card journal">
+      <h2>Journal</h2>
+      <ol class="log" id="log"></ol>
+    </section>
+  </main>
+
+  <script src="/static/sim.js"></script>
+</body>
+</html>
