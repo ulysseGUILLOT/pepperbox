@@ -1,73 +1,125 @@
 # Pepperbox
 
-Potager connecté de piments. Première étape : commander la lampe de
-croissance branchée sur une prise Shelly Plug M Gen 3.
+Potager connecté de piments. Pilote la lampe de croissance, branchée sur une
+prise Shelly Plug M Gen 3 : commande manuelle, programme horaire, et priorité à
+la présence pour ne pas éclairer l'appartement le soir quand on y est.
 
 ## Architecture
 
-    navigateur → nginx (web) ─┬─ statique : dashboard React
-                              └─ /api/*  → Flask (api) → RPC Shelly 192.168.1.102
+    navigateur → Apache (TLS, filtrage LAN) → nginx (web) ─┬─ statique : React
+                                                           └─ /api/* → Flask (api) → RPC Shelly
 
-Deux conteneurs. `web` est le seul publié ; `api` n'est joignable que depuis le
-réseau interne de la stack. La prise n'est accessible que depuis cette VM, qui
-est la seule machine sur le LAN 192.168.1.0/24.
+| Dossier | Contenu |
+|---|---|
+| `backend/` | API Flask, superviseur de présence, réglages SQLite |
+| `frontend/` | Tableau de bord React (Vite), servi par nginx |
+| `dev/shelly-mock/` | Fausse prise pour le développement |
+| `deploy/` | Script de déploiement et vhosts Apache de la production |
 
-## Démarrer
+Trois choix structurants :
 
-    cp .env.example .env
-    docker compose up -d --build
-
-Tableau de bord : https://pepperbox.ulysseguillot.fr (ou http://localhost:8080 sur la VM).
-
-Pour restreindre l'accès à la VM seule, mettre `BIND_ADDR=127.0.0.1` dans `.env`.
-
-## API
-
-| Méthode | Route              | Effet                                  |
-|---------|--------------------|----------------------------------------|
-| GET     | `/api/health`      | Vivacité du backend                    |
-| GET     | `/api/lamp`        | État + mesures électriques             |
-| POST    | `/api/lamp`        | `{"on": true}` / `{"on": false}`       |
-| POST    | `/api/lamp/toggle` | Bascule                                |
-| GET     | `/api/schedule`    | Programme d'allumage automatique       |
-| PUT     | `/api/schedule`    | `{"enabled":true,"on_time":"11:00","off_time":"23:00"}` |
-
-Réponse de `/api/lamp` :
-
-    {"on": false, "power_w": 0.0, "voltage_v": 242.1, "current_a": 0.0,
-     "temperature_c": 39.2, "energy_wh": 3.731, "for_seconds": 128.4,
-     "host": "192.168.1.102"}
-
-Si la prise ne répond pas : `502` avec `{"error": "prise_injoignable"}`.
+- **Le programme horaire est exécuté par la prise**, pas par le serveur
+  (`Schedule.Create`). La photopériode survit à un arrêt de la VM.
+- **Les réglages vivent en SQLite** (`/data/pepperbox.db`, volume `state`),
+  dans une table clé/valeur JSON qui accueille un nouveau réglage sans
+  migration.
+- **Les horaires sont en heure locale** (`LOCAL_TZ`). Le conteneur tourne en
+  UTC ; toutes les décisions passent par `app/clock.py`.
 
 ## Développement
 
-Le backend tourne dans son conteneur, le front en local avec rechargement :
+    cp .env.example .env
+    docker compose up -d --build        # http://localhost:8080
 
-    docker compose up -d api
-    cd frontend && npm install && npm run dev
+`docker-compose.override.yml` est chargé automatiquement : le backend parle à
+une **fausse prise** (`dev/shelly-mock`). C'est voulu — la vraie est joignable
+depuis un poste de dev, et une instance locale se battrait avec la production
+pour la lampe en posant ses propres programmes sur la prise.
 
-Vite proxifie `/api` vers `http://localhost:8000`, donc exposer le port de `api`
-dans un override compose si besoin.
+Front avec rechargement à chaud, le backend restant dans son conteneur :
 
-## Programme automatique
+    cd frontend && npm ci && npm run dev
 
-Le reglage est stocke en SQLite (`/data/pepperbox.db`, volume `state`), dans une
-table cle/valeur JSON prevue pour accueillir les reglages suivants sans
-migration. Par defaut : allumage 11:00, extinction 23:00.
+## Déploiement
 
-C'est **l'ordonnanceur interne de la prise** qui execute le cycle, pas le
-serveur : la lampe garde sa photoperiode meme si la VM est eteinte. Le backend
-se contente de traduire le reglage en `Schedule.Create` sur la prise, et
-realigne la prise au demarrage. Une fenetre franchissant minuit (22:00 ->
-06:00) est acceptee.
+Chaque push sur `main` déclenche `.github/workflows/deploy.yml` :
 
-Enregistrer un programme actif applique immediatement l'etat qu'il impose,
-sans attendre la prochaine borne.
+1. **build** — les deux images sont construites pour `linux/arm64` et poussées
+   sur `ghcr.io/ulysseguillot/pepperbox-{api,web}`. Rien n'est compilé sur la
+   VM : deux vCPU ARM partagés avec le routeur et son VPN.
+2. **deploy** — connexion SSH à la VM, qui tire les images et redémarre.
 
-## Notes
+La clé SSH du CI est **bridée côté serveur** : `authorized_keys` lui impose
+`deploy/deploy.sh` comme seule commande. Une fuite de cette clé permet de
+redéployer, pas d'obtenir un shell.
 
-- `api` tourne avec un seul worker gunicorn : la durée « allumée depuis » est
-  gardée en mémoire du processus et repart à zéro au redémarrage.
-- Les polices IBM Plex viennent de Google Fonts ; hors ligne, le navigateur
-  retombe sur la pile système.
+    command="/home/freebox/pepperbox/deploy/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… pepperbox-ci
+
+Secret requis dans le dépôt : `DEPLOY_SSH_KEY` (clé privée correspondante).
+
+Déploiement manuel, depuis la VM :
+
+    cd ~/pepperbox && git pull --ff-only
+    docker compose -p pepperbox -f docker-compose.yml -f docker-compose.prod.yml pull
+    docker compose -p pepperbox -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+Revenir à une version antérieure : chaque image est aussi étiquetée par le SHA
+du commit qui l'a produite.
+
+## Exposition réseau
+
+Les vhosts sont dans `deploy/apache/`. Tout est réservé au réseau local
+(`Require ip 192.168.1.0/24`), à une exception près :
+
+| Route | Accès | Rôle |
+|---|---|---|
+| `/api/presence/event` | Internet, jeton porteur | Le téléphone déclare arrivée et départ |
+| tout le reste | réseau local | Tableau de bord et API |
+
+Le retour de boucle NAT de la Freebox présente tous les appareils du LAN sous
+l'adresse `192.168.1.254`.
+
+## API
+
+| Méthode | Route | Effet |
+|---|---|---|
+| GET | `/api/health` | Vivacité |
+| GET | `/api/lamp` | État, mesures, coût estimé, présence |
+| POST | `/api/lamp` | `{"on": true}` — geste manuel |
+| POST | `/api/lamp/toggle` | Bascule — geste manuel |
+| GET / PUT | `/api/schedule` | `{"enabled", "on_time", "off_time"}` |
+| GET / PUT | `/api/presence` | `{"enabled", "quiet_start", "quiet_end"}` |
+| POST | `/api/presence/token` | Crée le jeton, affiché une seule fois |
+| POST | `/api/presence/event` | `{"state": "home"\|"away", "at": ISO 8601}` |
+
+## Priorité à la présence
+
+Pendant la plage de silence (20:00 → 11:00 par défaut), si le téléphone s'est
+déclaré présent :
+
+- un allumage **automatique** est supprimé, puis repris en fin de plage si le
+  programme le demande encore ;
+- un allumage **manuel** tient jusqu'à la prochaine extinction. Il est
+  mémorisé côté serveur : le champ `source` de la prise ne suffit pas, son
+  programme interne le réécrit en `loopback` à chaque borne.
+
+### Raccourci iOS
+
+Deux automatisations personnelles, *Arriver* et *Partir*, avec « Exécuter
+immédiatement ». Chacune enchaîne :
+
+1. **Date** ;
+2. **Formater la date**, format personnalisé `yyyy-MM-dd'T'HH:mm:ss'Z'`,
+   fuseau UTC ;
+3. **Obtenir le contenu de l'URL** :
+
+       URL      https://pepperbox.ulysseguillot.fr/api/presence/event
+       Méthode  POST
+       En-tête  Authorization: Bearer <jeton>
+       Corps    JSON  { "state": "home", "at": <date formatée> }
+
+   `"away"` pour l'automatisation *Partir*.
+
+Le jeton se crée depuis le panneau « Présence ». Le serveur n'en conserve
+qu'une empreinte SHA-256 ; l'horodatage est vérifié à ± 5 minutes contre le
+rejeu, et la route est limitée à 10 requêtes par minute et par adresse.

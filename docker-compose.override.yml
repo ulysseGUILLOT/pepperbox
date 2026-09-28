@@ -1,0 +1,22 @@
+# Surcharge de developpement, chargee automatiquement par `docker compose up`.
+# La production l'ignore : elle nomme ses fichiers explicitement (-f).
+#
+# Le backend parle ici a une fausse prise. La vraie est joignable depuis un
+# poste de dev : une instance locale se battrait avec la production pour la
+# lampe et poserait ses propres programmes en double sur la prise.
+services:
+  shelly-mock:
+    build: ./dev/shelly-mock
+    container_name: pepperbox_shelly_mock
+
+  api:
+    environment:
+      SHELLY_HOST: shelly-mock:8000
+    ports:
+      - "127.0.0.1:8000:8000"   # pour `npm run dev`, que Vite proxifie ici
+    depends_on:
+      - shelly-mock
+
+  web:
+    ports: !override
+      - "127.0.0.1:8080:80"

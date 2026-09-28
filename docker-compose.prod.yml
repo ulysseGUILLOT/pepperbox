@@ -1,0 +1,10 @@
+# Production : la VM ne compile rien. Deux vCPU ARM partages avec le routeur
+# et son VPN ; les images sont construites par GitHub Actions et tirees ici.
+services:
+  api:
+    image: ghcr.io/ulysseguillot/pepperbox-api:latest
+    build: !reset null
+
+  web:
+    image: ghcr.io/ulysseguillot/pepperbox-web:latest
+    build: !reset null

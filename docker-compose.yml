@@ -1,3 +1,5 @@
+# Base commune. Seule, elle construit les images localement ; en production
+# docker-compose.prod.yml la remplace par les images publiees sur GHCR.
 services:
   api:
     build: ./backend

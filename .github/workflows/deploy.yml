@@ -1,0 +1,87 @@
+name: Deploy
+
+# Deploiement sur la VM Freebox : chaque push sur main, ou a la main depuis
+# l'onglet Actions (workflow_dispatch).
+#
+# Les images se construisent ici, pas sur le serveur. La VM a deux vCPU ARM
+# partages avec le routeur et son VPN : y compiler sature la machine. Elle ne
+# fait que tirer les images et redemarrer.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/ulysseguillot
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: backend
+          - name: web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # La cible est arm64, le runner x86. QEMU ne sert qu'aux etages finaux
+      # (pip, nginx) ; l'etage Node du front est marque
+      # --platform=$BUILDPLATFORM et tourne nativement.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/arm64
+          push: true
+          # `latest` est ce que le compose tire ; le SHA donne un repere fixe
+          # pour revenir en arriere sans rien reconstruire.
+          tags: |
+            ${{ env.REGISTRY }}/pepperbox-${{ matrix.name }}:latest
+            ${{ env.REGISTRY }}/pepperbox-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      # La cle du CI est bridee cote serveur : authorized_keys lui impose
+      # deploy/deploy.sh comme seule commande. Ce qui est envoye ici n'est
+      # donc pas un script, seulement l'entree de celui du serveur.
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # Cle d'hote epinglee : pas de confiance au premier contact.
+          echo "ulysseguillot.fr ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFCYjrOkJ893XusVc68Ac7eLANltxX/3tDp70lIrSgXQ" > ~/.ssh/known_hosts
+          printf '%s %s\n' "$GHCR_USER" "$GHCR_TOKEN" | ssh \
+            -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 freebox@ulysseguillot.fr
