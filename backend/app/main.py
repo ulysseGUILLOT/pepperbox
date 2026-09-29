@@ -2,6 +2,7 @@ import logging
 
 from flask import Flask, jsonify, request
 
+from . import preferences as prefs
 from . import presence as pres
 from . import schedule as sched
 from .clock import now_local
@@ -44,7 +45,7 @@ def create_app():
     supervisor.start()
 
     def enrich(status):
-        price = app.config["PRICE_PER_KWH"]
+        price = prefs.load(settings, app.config)["price_per_kwh"]
         return {
             **status,
             "price_per_kwh": price,
@@ -63,6 +64,10 @@ def create_app():
     @app.errorhandler(sched.InvalidSchedule)
     def _invalid_schedule(exc):
         return jsonify({"error": "programme_invalide", "message": str(exc)}), 400
+
+    @app.errorhandler(prefs.InvalidPreference)
+    def _invalid_preference(exc):
+        return jsonify({"error": "parametre_invalide", "message": str(exc)}), 400
 
     @app.errorhandler(pres.InvalidPresence)
     def _invalid_presence(exc):
@@ -118,6 +123,17 @@ def create_app():
             supervisor.mark_auto(desired)
         supervisor.nudge()
         return jsonify(new)
+
+    # ---- parametres ----
+
+    @app.get("/api/settings")
+    def get_settings():
+        return jsonify(prefs.load(settings, app.config))
+
+    @app.put("/api/settings")
+    def put_settings():
+        changes = prefs.parse(request.get_json(silent=True))
+        return jsonify(prefs.save(settings, app.config, changes))
 
     # ---- presence (reseau local uniquement) ----
 

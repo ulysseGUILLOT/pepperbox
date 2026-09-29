@@ -27,3 +27,8 @@ export const savePresence = (presence) =>
 
 export const issuePresenceToken = () =>
   request('/api/presence/token', { method: 'POST' })
+
+export const getSettings = (signal) => request('/api/settings', { signal })
+
+export const saveSettings = (changes) =>
+  request('/api/settings', { method: 'PUT', body: JSON.stringify(changes) })

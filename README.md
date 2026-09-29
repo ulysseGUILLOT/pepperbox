@@ -116,8 +116,19 @@ l'adresse `192.168.1.254`.
 | POST | `/api/lamp/toggle` | Bascule — geste manuel |
 | GET / PUT | `/api/schedule` | `{"enabled", "on_time", "off_time"}` |
 | GET / PUT | `/api/presence` | `{"enabled", "quiet_start", "quiet_end"}` |
+| GET / PUT | `/api/settings` | `{"price_per_kwh"}` — mise à jour partielle |
 | POST | `/api/presence/token` | Crée le jeton, affiché une seule fois |
 | POST | `/api/presence/event` | `{"state": "home"\|"away", "at": ISO 8601}` |
+
+## Paramètres
+
+La page `/parametres` regroupe ce qui se règle rarement : le tarif du kWh et le
+jeton du raccourci iOS. Les valeurs vivent en base ; les variables
+d'environnement n'en fournissent que la valeur initiale.
+
+Ajouter un paramètre : une entrée dans `FIELDS` (`backend/app/preferences.py`)
+suffit côté serveur — validation, valeur par défaut, stockage et API en
+découlent — puis un champ dans `frontend/src/views/Settings.jsx`.
 
 ## Priorité à la présence
 
@@ -150,6 +161,6 @@ immédiatement ». Chacune enchaîne :
 
    `"away"` pour l'automatisation *Partir*.
 
-Le jeton se crée depuis le panneau « Présence ». Le serveur n'en conserve
+Le jeton se crée depuis la page Paramètres. Le serveur n'en conserve
 qu'une empreinte SHA-256 ; l'horodatage est vérifié à ± 5 minutes contre le
 rejeu, et la route est limitée à 10 requêtes par minute et par adresse.

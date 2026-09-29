@@ -1,28 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getLamp, setLamp } from './api.js'
-import Fixture from './components/Fixture.jsx'
 import Mark from './components/Mark.jsx'
-import Presence from './components/Presence.jsx'
-import Program from './components/Program.jsx'
 import StatusDot from './components/StatusDot.jsx'
-import Telemetry from './components/Telemetry.jsx'
+import { useRoute } from './router.js'
+import Dashboard from './views/Dashboard.jsx'
+import Settings from './views/Settings.jsx'
 
 const POLL_MS = 2000
 
-function formatNumber(value, digits) {
-  return value.toFixed(digits)
-}
-
-function formatDuration(seconds) {
-  const s = Math.floor(seconds)
-  if (s < 60) return `${s} s`
-  if (s < 3600) return `${Math.floor(s / 60)} min`
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  return m ? `${h} h ${m}` : `${h} h`
-}
+const PAGES = [
+  { path: '/', label: 'Tableau de bord' },
+  { path: '/parametres', label: 'Paramètres' },
+]
 
 export default function App() {
+  const [path, navigate] = useRoute()
   const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
   const [pending, setPending] = useState(false)
@@ -65,75 +57,62 @@ export default function App() {
     }
   }
 
+  const follow = (to) => (event) => {
+    event.preventDefault()
+    navigate(to)
+  }
+
   const on = status?.on ?? false
   const loading = status === null && error === null
   const connection = loading ? 'loading' : error ? 'offline' : 'online'
+  const onSettings = path.startsWith('/parametres')
 
   return (
     <div className={on ? 'app is-on' : 'app'}>
       <header className="masthead">
         <h1 className="wordmark">
-          <Mark />
-          Pepperbox
+          <a href="/" onClick={follow('/')} className="wordmark__link">
+            <Mark />
+            Pepperbox
+          </a>
         </h1>
+
+        <nav className="nav" aria-label="Pages">
+          {PAGES.map((page) => {
+            const active = page.path === '/' ? !onSettings : onSettings
+            return (
+              <a
+                key={page.path}
+                href={page.path}
+                onClick={follow(page.path)}
+                className={active ? 'nav__link is-active' : 'nav__link'}
+                aria-current={active ? 'page' : undefined}
+              >
+                {page.label}
+              </a>
+            )
+          })}
+        </nav>
+
         <div className="masthead__meta">
           <StatusDot state={connection} />
           <span className="masthead__host">{status?.host ?? '—'}</span>
         </div>
       </header>
 
-      <main className="console">
-        <section className="lamp" aria-labelledby="lamp-title">
-          <h2 id="lamp-title" className="lamp__title">
-            Lampe de croissance
-          </h2>
-
-          <Fixture on={on} />
-
-          <div className="lamp__readout">
-            <p className="lamp__power">
-              {status ? formatNumber(status.power_w, 1) : '—'}
-              {status && <span className="lamp__unit">W</span>}
-            </p>
-            <p className="lamp__since">
-              {!status
-                ? loading
-                  ? 'Lecture de la prise'
-                  : 'Prise injoignable'
-                : on
-                  ? `Allumée depuis ${formatDuration(status.for_seconds)}`
-                  : `Éteinte depuis ${formatDuration(status.for_seconds)}`}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="switch"
-            onClick={handleToggle}
-            aria-pressed={on}
-            disabled={pending || !status}
-          >
-            {pending
-              ? 'Commande en cours'
-              : on
-                ? 'Éteindre la lampe'
-                : 'Allumer la lampe'}
-          </button>
-
-          <p className="visually-hidden" role="status">
-            {on ? 'Lampe allumée' : 'Lampe éteinte'}
-          </p>
-        </section>
-
-        <aside className="rail">
-          <div className="panel">
-            <Telemetry status={error ? null : status} />
-          </div>
-          <Presence state={status?.presence} onChange={() => refresh()} />
-        </aside>
-      </main>
-
-      <Program onApplied={() => refresh()} />
+      {onSettings ? (
+        <Settings presence={status?.presence} onChange={() => refresh()} />
+      ) : (
+        <Dashboard
+          status={status}
+          error={error}
+          loading={loading}
+          pending={pending}
+          onToggle={handleToggle}
+          onRefresh={() => refresh()}
+          onOpenSettings={follow('/parametres')}
+        />
+      )}
 
       {error && (
         <p className="alert" role="alert">
