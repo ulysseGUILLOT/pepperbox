@@ -135,9 +135,12 @@ déclaré présent :
 Deux automatisations personnelles, *Arriver* et *Partir*, avec « Exécuter
 immédiatement ». Chacune enchaîne :
 
-1. **Date** ;
-2. **Formater la date**, format personnalisé `yyyy-MM-dd'T'HH:mm:ss'Z'`,
-   fuseau UTC ;
+1. **Date** (date actuelle) ;
+2. **Formater la date**, format **ISO 8601**, avec l'option « Inclure
+   l'heure ISO 8601 ». Le résultat porte le décalage horaire
+   (`2026-09-29T11:36:00+02:00`). Ne pas utiliser de format personnalisé
+   terminé par `'Z'` : l'action n'a pas de réglage de fuseau, l'heure locale
+   serait étiquetée UTC et le serveur la refuserait ;
 3. **Obtenir le contenu de l'URL** :
 
        URL      https://pepperbox.ulysseguillot.fr/api/presence/event
