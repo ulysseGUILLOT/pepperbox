@@ -33,7 +33,7 @@ function render(state) {
   text($('lamp-state'), lamp.on ? 'Lampe allumée' : 'Lampe éteinte')
   text($('lamp-figures'), `${lamp.power_w.toFixed(0)} W`)
   text($('source'), `${lamp.source_label} (${lamp.source})`)
-  text($('energy'), `${lamp.energy_wh.toFixed(3)} Wh`)
+  text($('energy'), `${(lamp.energy_wh / 1000).toFixed(3)} kWh`)
 
   $('chk-offline').checked = state.offline
 
