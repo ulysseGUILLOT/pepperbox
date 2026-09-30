@@ -130,6 +130,13 @@ Ajouter un paramètre : une entrée dans `FIELDS` (`backend/app/preferences.py`)
 suffit côté serveur — validation, valeur par défaut, stockage et API en
 découlent — puis un champ dans `frontend/src/views/Settings.jsx`.
 
+## Guide
+
+La page `/guide` est un tutoriel de culture du piment en intérieur, sous lampe
+et sans chambre de culture : du semis aux cycles des années suivantes. Tout est
+statique — le texte dans `frontend/src/views/Guide.jsx`, les schémas SVG dans
+`frontend/src/components/GuideFigures.jsx`.
+
 ## Priorité à la présence
 
 Pendant la plage de silence (20:00 → 11:00 par défaut), si le téléphone s'est

@@ -4,12 +4,14 @@ import Mark from './components/Mark.jsx'
 import StatusDot from './components/StatusDot.jsx'
 import { useRoute } from './router.js'
 import Dashboard from './views/Dashboard.jsx'
+import Guide from './views/Guide.jsx'
 import Settings from './views/Settings.jsx'
 
 const POLL_MS = 2000
 
 const PAGES = [
   { path: '/', label: 'Tableau de bord' },
+  { path: '/guide', label: 'Guide' },
   { path: '/parametres', label: 'Paramètres' },
 ]
 
@@ -65,7 +67,9 @@ export default function App() {
   const on = status?.on ?? false
   const loading = status === null && error === null
   const connection = loading ? 'loading' : error ? 'offline' : 'online'
-  const onSettings = path.startsWith('/parametres')
+  // Tout chemin inconnu retombe sur le tableau de bord.
+  const current =
+    PAGES.find((page) => page.path !== '/' && path.startsWith(page.path))?.path ?? '/'
 
   return (
     <div className={on ? 'app is-on' : 'app'}>
@@ -79,7 +83,7 @@ export default function App() {
 
         <nav className="nav" aria-label="Pages">
           {PAGES.map((page) => {
-            const active = page.path === '/' ? !onSettings : onSettings
+            const active = page.path === current
             return (
               <a
                 key={page.path}
@@ -100,7 +104,9 @@ export default function App() {
         </div>
       </header>
 
-      {onSettings ? (
+      {current === '/guide' ? (
+        <Guide onOpenDashboard={follow('/')} />
+      ) : current === '/parametres' ? (
         <Settings presence={status?.presence} onChange={() => refresh()} />
       ) : (
         <Dashboard
@@ -114,7 +120,7 @@ export default function App() {
         />
       )}
 
-      {error && (
+      {error && current !== '/guide' && (
         <p className="alert" role="alert">
           <strong>{error}</strong> Vérifie qu’elle est alimentée et connectée au
           Wi-Fi, puis réessaie.

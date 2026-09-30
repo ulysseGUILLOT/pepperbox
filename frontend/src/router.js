@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-/** Routage minimal par chemin : deux pages ne justifient pas une dependance. */
+/** Routage minimal par chemin : quelques pages ne justifient pas une dependance. */
 export function useRoute() {
   const [path, setPath] = useState(() => window.location.pathname)
 
