@@ -63,11 +63,19 @@ def should_be_on(schedule, now):
     return current >= start or current < end
 
 
+def on_job_id(settings):
+    """Identifiant, sur la prise, du programme d'allumage : le premier que
+    pose apply(). None si le programme est desactive."""
+    ids = settings.get(IDS_KEY) or []
+    return ids[0] if ids else None
+
+
 def apply(plug, settings, schedule):
     """Remplace les programmes poses par l'application sur la prise.
 
     Seuls les identifiants que nous avons enregistres sont supprimes : un
-    programme cree depuis l'application Shelly n'est pas efface.
+    programme cree depuis l'application Shelly n'est pas efface. L'ordre des
+    identifiants compte : l'allumage d'abord, l'extinction ensuite.
     """
     for job_id in settings.get(IDS_KEY, []) or []:
         try:

@@ -2,6 +2,11 @@
 
 Une boucle de fond est indispensable : la borne de 20:00 arrive sans qu'aucun
 evenement du telephone ne la signale.
+
+Present en plage de silence, le serveur fait deux choses : il eteint une lampe
+allumee par le programme, et il suspend sur la prise le programme d'allumage,
+pour que celui-ci ne la rallume pas entre-temps -- la prise execute ses
+programmes seule, et le serveur ne pourrait que la rattraper apres coup.
 """
 import logging
 import threading
@@ -65,6 +70,7 @@ class Supervisor:
             "quiet_now": quiet,
             "overriding": bool(config["enabled"] and state.get("home") and quiet),
             "manual_on": bool(state.get("manual_on")),
+            "program_held": state.get("held_job") is not None,
             "token_set": bool(self._settings.get(presence.TOKEN_KEY)),
         }
 
@@ -91,7 +97,11 @@ class Supervisor:
     def tick(self):
         config = presence.load(self._settings)
         if not config.get("enabled"):
-            return
+            # Priorite desactivee : plus rien a faire, sauf rendre ce qu'on
+            # tenait encore (lampe eteinte, programme suspendu).
+            state = presence.load_state(self._settings)
+            if not state.get("forced_off") and state.get("held_job") is None:
+                return
 
         try:
             status = self._plug.status()
@@ -103,11 +113,12 @@ class Supervisor:
             state = presence.load_state(self._settings)
             self._track_manual(state, status)
 
-            overriding = (bool(state.get("home"))
+            overriding = (bool(config.get("enabled")) and bool(state.get("home"))
                           and presence.in_quiet_window(config, now_local()))
             if overriding:
                 self._suppress(state, status)
-            elif state.get("forced_off"):
+                self._hold_program(state)
+            elif state.get("forced_off") or state.get("held_job") is not None:
                 self._restore(state)
 
     def _track_manual(self, state, status):
@@ -139,9 +150,40 @@ class Supervisor:
         self._settings.set(presence.STATE_KEY, state)
         log.info("presence en plage de silence : lampe eteinte")
 
+    def _hold_program(self, state):
+        """Suspend le programme d'allumage sur la prise. L'identifiant retenu
+        permet de reconnaitre un programme reenregistre entre-temps : il
+        faut alors suspendre le nouveau."""
+        job = sched.on_job_id(self._settings)
+        if job is None or state.get("held_job") == job:
+            return
+        try:
+            self._plug.schedule_enable(job, False)
+        except ShellyError as exc:
+            log.warning("suspension du programme impossible: %s", exc)
+            return
+        state["held_job"] = job
+        self._settings.set(presence.STATE_KEY, state)
+        log.info("presence en plage de silence : programme d'allumage suspendu")
+
     def _restore(self, state):
-        """Ne rallume que ce que l'on a soi-meme eteint, et seulement si le
-        programme le demande a cet instant."""
+        """Rend a la prise son programme d'allumage, puis ne rallume que ce
+        que l'on a soi-meme empeche, et seulement si le programme le demande
+        a cet instant."""
+        held = state.get("held_job")
+        if held is not None:
+            if held != sched.on_job_id(self._settings):
+                # Programme reenregistre entre-temps : il a ete recree actif.
+                state["held_job"] = None
+            else:
+                try:
+                    self._plug.schedule_enable(held, True)
+                    state["held_job"] = None
+                    log.info("fin de priorite : programme d'allumage reactive")
+                except ShellyError as exc:
+                    # On garde la marque pour reessayer au prochain cycle,
+                    # sans retarder la reprise de la lampe.
+                    log.warning("reactivation du programme impossible: %s", exc)
         state["forced_off"] = False
         self._settings.set(presence.STATE_KEY, state)
 
@@ -153,6 +195,13 @@ class Supervisor:
         try:
             if not self._plug.status()["on"]:
                 self._plug.set(True)
+                # Vu de la prise, cet allumage a la meme origine ("HTTP_in")
+                # qu'un geste depuis l'application Shelly. Sans cette marque,
+                # le cycle suivant le prenait pour un allumage manuel et la
+                # lampe restait allumee a 20:00 (incident du 30/09).
+                state["auto_on"] = True
+                state["manual_on"] = False
+                self._settings.set(presence.STATE_KEY, state)
                 log.info("fin de priorite : programme repris, lampe rallumee")
         except ShellyError as exc:
             log.warning("reprise du programme impossible: %s", exc)

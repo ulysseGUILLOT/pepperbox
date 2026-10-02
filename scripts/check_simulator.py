@@ -72,6 +72,17 @@ def watch(seconds, step=2):
     return seen
 
 
+def jobs():
+    """Programmes poses sur la prise simulee, tels que la box les voit."""
+    return http("GET", f"{SIM}/state")[1]["jobs"]
+
+
+def on_job_enabled():
+    """Etat du programme d'allumage : le premier pose, comme dans le backend."""
+    posed = jobs()
+    return posed[0]["enabled"] if posed else None
+
+
 def quiet_window_around_now():
     now = datetime.now()
     start = (now - timedelta(hours=1)).replace(minute=0)
@@ -115,7 +126,7 @@ def main():
     wait_until(t_off, extra=3)
     check(f"extinction à {hhmm(t_off)}", not lamp()["on"])
 
-    print("4. Présent en plage de silence : allumage automatique supprimé")
+    print("4. Présent en plage de silence : le programme d'allumage est suspendu sur la prise")
     q_start, q_end = quiet_window_around_now()
     http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": q_start, "quiet_end": q_end})
     http("POST", f"{SIM}/presence", {"state": "home"})
@@ -123,12 +134,19 @@ def main():
     http("PUT", f"{API}/schedule", {"enabled": True, "on_time": hhmm(t_on),
                                     "off_time": hhmm(t_on + timedelta(minutes=20))})
     check("l'enregistrement ne rallume pas la lampe", not lamp()["on"])
+    time.sleep(3)                      # le superviseur est reveille par l'enregistrement
+    check("le programme d'allumage est suspendu sur la prise", on_job_enabled() is False,
+          f"jobs : {jobs()}")
     wait_until(t_on, extra=-1)
     seen = watch(45, step=1)
-    check("allumée par le programme puis éteinte par la priorité",
-          (True, "loopback") in seen and seen[-1][0] is False, f"états : {seen}")
+    check(f"à {hhmm(t_on)}, la lampe reste éteinte, sans clignotement",
+          all(on is False for on, _ in seen), f"états : {seen}")
 
     print("5. Allumage manuel conservé quand le programme déclenche (incident du 28/09)")
+    http("POST", f"{SIM}/presence", {"state": "away"})
+    time.sleep(3)
+    check("au départ, le programme d'allumage est réactivé sur la prise", on_job_enabled() is True,
+          f"jobs : {jobs()}")
     t_on = next_minute(margin=50)      # laisse le temps au superviseur de voir le geste
     http("PUT", f"{API}/schedule", {"enabled": True, "on_time": hhmm(t_on),
                                     "off_time": hhmm(t_on + timedelta(minutes=20))})
@@ -138,6 +156,34 @@ def main():
     seen = watch(45, step=1)
     check("l'origine passe en « loopback » et la lampe reste allumée",
           (True, "loopback") in seen and all(on for on, _ in seen), f"états : {seen}")
+
+    print("6. Fin de plage de silence : la reprise du programme n'est pas un geste manuel (incident du 30/09)")
+    http("POST", f"{API}/lamp", {"on": False})
+    http("POST", f"{SIM}/presence", {"state": "home"})
+    t_on = next_minute()
+    http("PUT", f"{API}/schedule", {"enabled": True, "on_time": hhmm(t_on),
+                                    "off_time": hhmm(t_on + timedelta(minutes=30))})
+    wait_until(t_on, extra=5)
+    check("présent en plage de silence, le programme n'allume pas la lampe", not lamp()["on"])
+    t_end = next_minute()
+    http("PUT", f"{API}/presence", {"enabled": True,
+                                    "quiet_start": hhmm(t_end - timedelta(hours=1)),
+                                    "quiet_end": hhmm(t_end)})
+    wait_until(t_end, extra=70)        # deux cycles : la reprise, puis son observation
+    s, p = lamp(), http("GET", f"{API}/presence")[1]
+    check("fin de plage : le programme est repris, origine « HTTP_in »",
+          s["on"] and s["source"] == "HTTP_in", f"on={s['on']} source={s['source']}")
+    check("cette reprise n'est pas comptée comme un allumage manuel",
+          p.get("manual_on") is False, f"manual_on={p.get('manual_on')}")
+    check("le programme d'allumage est de nouveau actif sur la prise", on_job_enabled() is True,
+          f"jobs : {jobs()}")
+    t_quiet = next_minute()
+    http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": hhmm(t_quiet),
+                                    "quiet_end": hhmm(t_quiet + timedelta(hours=2))})
+    wait_until(t_quiet, extra=-1)
+    seen = watch(45, step=1)
+    check("nouvelle plage de silence : la lampe s'éteint",
+          seen[-1][0] is False, f"états : {seen}")
 
     # Retour aux reglages par defaut.
     http("POST", f"{API}/lamp", {"on": False})

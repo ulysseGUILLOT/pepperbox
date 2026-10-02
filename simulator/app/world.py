@@ -142,6 +142,24 @@ class World:
             self.log("programme", f"Programme {job_id} retiré")
             return {"rev": self._rev}
 
+    def schedule_update(self, job_id, params):
+        """Schedule.Update : le backend ne s'en sert que pour suspendre et
+        reactiver un programme (champ enable), sans le recreer."""
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                return None
+            if "enable" in params:
+                job["enable"] = truthy(params["enable"])
+            if "timespec" in params:
+                job["timespec"] = str(params["timespec"])
+            if "calls" in params:
+                job["calls"] = params["calls"] or []
+            self._rev += 1
+            self.log("programme", f"Programme {job_id} "
+                                  f"{'réactivé' if job['enable'] else 'suspendu'} : {describe(job)}")
+            return {"rev": self._rev}
+
     def schedule_list(self):
         with self._lock:
             return {"jobs": list(self.jobs.values()), "rev": self._rev}

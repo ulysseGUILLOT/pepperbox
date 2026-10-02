@@ -51,6 +51,11 @@ class ShellyPlug:
     def schedule_delete(self, job_id):
         self._rpc("Schedule.Delete", {"id": job_id})
 
+    def schedule_enable(self, job_id, enable):
+        """Suspend ou reactive un programme sans le recreer : il garde son
+        identifiant, et donc sa place dans nos reglages."""
+        self._rpc("Schedule.Update", {"id": job_id, "enable": bool(enable)})
+
     def schedule_list(self):
         return self._rpc("Schedule.List").get("jobs", [])
 

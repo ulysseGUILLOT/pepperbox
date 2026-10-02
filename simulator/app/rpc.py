@@ -23,6 +23,11 @@ def make_blueprint(world):
                 return world.schedule_delete(int(params.get("id")))
             except (TypeError, ValueError):
                 return None
+        if method == "Schedule.Update":
+            try:
+                return world.schedule_update(int(params.get("id")), params)
+            except (TypeError, ValueError):
+                return None
         if method == "Schedule.List":
             return world.schedule_list()
         return None

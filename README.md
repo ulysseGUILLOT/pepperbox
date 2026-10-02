@@ -142,11 +142,16 @@ statique — le texte dans `frontend/src/views/Guide.jsx`, les schémas SVG dans
 Pendant la plage de silence (20:00 → 11:00 par défaut), si le téléphone s'est
 déclaré présent :
 
-- un allumage **automatique** est supprimé, puis repris en fin de plage si le
-  programme le demande encore ;
+- le **programme d'allumage est suspendu sur la prise** (`Schedule.Update`,
+  `enable: false`) : la prise exécute ses programmes seule, et le serveur ne
+  pourrait sinon que la rattraper après coup, d'où un clignotement. Une lampe
+  déjà allumée par le programme est éteinte. En fin de plage, ou au départ, le
+  programme est réactivé et repris si l'heure le demande encore ;
 - un allumage **manuel** tient jusqu'à la prochaine extinction. Il est
   mémorisé côté serveur : le champ `source` de la prise ne suffit pas, son
-  programme interne le réécrit en `loopback` à chaque borne.
+  programme interne le réécrit en `loopback` à chaque borne. Les allumages
+  décidés par le serveur sont marqués aussi : vus de la prise, ils ont la
+  même origine (`HTTP_in`) qu'un geste depuis l'application Shelly.
 
 ### Raccourci iOS
 
