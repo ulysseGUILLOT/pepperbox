@@ -4,8 +4,8 @@
     docker compose up -d --build
     python3 scripts/check_simulator.py
 
-Dure environ six minutes : le temps est reel, et un programme ne se declenche
-qu'a la minute pleine. Le temps accelere (phase 2) ramenera cela a quelques
+Dure une douzaine de minutes : le temps est reel, et un programme ne se
+declenche qu'a la minute pleine. Le temps accelere (phase 2) ramenera cela a quelques
 secondes et permettra de le lancer dans le CI.
 """
 import json
@@ -209,6 +209,45 @@ def main():
     check("capteur débranché : la carte bat toujours, sans mesure",
           b.get("online") is True and b.get("temperature_c") is None,
           f"online={b.get('online')} temperature_c={b.get('temperature_c')}")
+
+    print("8. Arrivée et départ : la lampe prend aussitôt l'état voulu")
+    now = datetime.now()
+    q_start, q_end = quiet_window_around_now()
+    http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": q_start, "quiet_end": q_end})
+    http("POST", f"{SIM}/presence", {"state": "away"})
+    http("PUT", f"{API}/schedule", {"enabled": True, "on_time": hhmm(now - timedelta(hours=1)),
+                                    "off_time": hhmm(now + timedelta(hours=2))})
+    time.sleep(3)
+    http("POST", f"{API}/lamp", {"on": True})          # allumage manuel, absent
+    http("POST", f"{SIM}/presence", {"state": "home"})
+    time.sleep(3)
+    check("arrivée en plage de silence : la lampe s'éteint, même allumée à la main",
+          not lamp()["on"])
+    http("POST", f"{SIM}/presence", {"state": "away"})
+    time.sleep(3)
+    check("départ en pleine plage d'allumage : la lampe se rallume aussitôt", lamp()["on"])
+    http("POST", f"{API}/lamp", {"on": False})         # extinction manuelle, absent
+    # Reenregistrer la presence reveille le superviseur : un cycle sans borne.
+    http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": q_start, "quiet_end": q_end})
+    time.sleep(3)
+    check("entre deux bornes, l'extinction manuelle est respectée", not lamp()["on"])
+    http("POST", f"{SIM}/presence", {"state": "home"})
+    time.sleep(3)
+    http("POST", f"{SIM}/presence", {"state": "away"})
+    time.sleep(3)
+    check("départ suivant : même éteinte à la main, la lampe se rallume", lamp()["on"])
+
+    print("9. Début de plage de silence, présent : la lampe s'éteint, même allumée à la main")
+    t_quiet = next_minute(margin=20)   # laisse passer les deux attentes ci-dessous
+    http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": hhmm(t_quiet),
+                                    "quiet_end": hhmm(t_quiet + timedelta(hours=2))})
+    http("POST", f"{SIM}/presence", {"state": "home"})
+    time.sleep(3)
+    http("POST", f"{API}/lamp", {"on": True})
+    time.sleep(3)
+    check("avant la plage, présent, l'allumage manuel tient", lamp()["on"])
+    wait_until(t_quiet, extra=35)      # un cycle du superviseur au plus
+    check(f"à {hhmm(t_quiet)}, la lampe s'éteint", not lamp()["on"])
 
     # Retour aux reglages par defaut.
     http("POST", f"{SIM}/sensor", {"connected": True, "temperature_c": 24, "humidity_pct": 55})

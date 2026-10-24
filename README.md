@@ -69,7 +69,7 @@ du vrai matériel y sont reproduits parce que le backend en dépend (voir
 `simulator/app/world.py`). Toute nouvelle surprise de la vraie prise doit y
 être reportée, sinon le simulateur rassure à tort.
 
-Vérification des scénarios, environ six minutes en temps réel :
+Vérification des scénarios, une douzaine de minutes en temps réel :
 
     python3 scripts/check_simulator.py
 
@@ -158,11 +158,19 @@ déclaré présent :
   pourrait sinon que la rattraper après coup, d'où un clignotement. Une lampe
   déjà allumée par le programme est éteinte. En fin de plage, ou au départ, le
   programme est réactivé et repris si l'heure le demande encore ;
-- un allumage **manuel** tient jusqu'à la prochaine extinction. Il est
-  mémorisé côté serveur : le champ `source` de la prise ne suffit pas, son
-  programme interne le réécrit en `loopback` à chaque borne. Les allumages
-  décidés par le serveur sont marqués aussi : vus de la prise, ils ont la
-  même origine (`HTTP_in`) qu'un geste depuis l'application Shelly.
+- à chaque **borne** — arrivée, départ, début et fin de plage —, la lampe
+  prend l'état voulu : allumée si le programme le demande, sauf présent en
+  plage de silence. Rentrer en plage de silence l'éteint aussitôt, même
+  allumée à la main ; partir en pleine plage d'allumage la rallume aussitôt,
+  même éteinte à la main ; partir hors des heures du programme éteint une
+  lampe restée allumée ;
+- **entre deux bornes**, un geste manuel est respecté : rallumer la lampe à
+  21:00 en étant là, c'est voulu, et le programme qui se déclenche ne
+  l'éteint pas. Il est mémorisé côté serveur : le champ `source` de la prise
+  ne suffit pas, son programme interne le réécrit en `loopback` à chaque
+  borne. Les allumages décidés par le serveur sont marqués aussi : vus de la
+  prise, ils ont la même origine (`HTTP_in`) qu'un geste depuis
+  l'application Shelly.
 
 ### Raccourci iOS
 

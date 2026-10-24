@@ -7,6 +7,11 @@ Present en plage de silence, le serveur fait deux choses : il eteint une lampe
 allumee par le programme, et il suspend sur la prise le programme d'allumage,
 pour que celui-ci ne la rallume pas entre-temps -- la prise execute ses
 programmes seule, et le serveur ne pourrait que la rattraper apres coup.
+
+Etat voulu : allumee si le programme le demande, sauf present en plage de
+silence. Il s'impose a chaque borne -- arrivee, depart, debut et fin de
+plage --, geste manuel ou non. Entre deux bornes, un geste manuel est
+respecte : rallumer la lampe a 21:00 en etant la, c'est voulu.
 """
 import logging
 import threading
@@ -79,6 +84,8 @@ class Supervisor:
             state = presence.load_state(self._settings)
             if state.get("home") != home:
                 state["since"] = at
+                # Borne a traiter au prochain cycle, que nudge() avance.
+                state["home_changed"] = True
             state["home"] = home
             self._settings.set(presence.STATE_KEY, state)
         self.nudge()
@@ -113,13 +120,23 @@ class Supervisor:
             state = presence.load_state(self._settings)
             self._track_manual(state, status)
 
-            overriding = (bool(config.get("enabled")) and bool(state.get("home"))
+            enabled = bool(config.get("enabled"))
+            overriding = (enabled and bool(state.get("home"))
                           and presence.in_quiet_window(config, now_local()))
+            # Borne : arrivee ou depart, debut ou fin de plage de silence.
+            # Elle leve un geste manuel anterieur : l'etat voulu s'impose.
+            edge = enabled and (state.pop("home_changed", False)
+                                or state.get("was_overriding") != overriding)
+            state["was_overriding"] = overriding
+            if edge:
+                state["manual_on"] = False
+            self._settings.set(presence.STATE_KEY, state)
+
             if overriding:
                 self._suppress(state, status)
                 self._hold_program(state)
-            elif state.get("forced_off") or state.get("held_job") is not None:
-                self._restore(state)
+            elif edge or state.get("forced_off") or state.get("held_job") is not None:
+                self._restore(state, enforce=edge)
 
     def _track_manual(self, state, status):
         """Memorise un allumage humain. Le champ source de la prise ne suffit
@@ -166,10 +183,11 @@ class Supervisor:
         self._settings.set(presence.STATE_KEY, state)
         log.info("presence en plage de silence : programme d'allumage suspendu")
 
-    def _restore(self, state):
-        """Rend a la prise son programme d'allumage, puis ne rallume que ce
-        que l'on a soi-meme empeche, et seulement si le programme le demande
-        a cet instant."""
+    def _restore(self, state, enforce=False):
+        """Rend a la prise son programme d'allumage, puis allume la lampe si
+        le programme le demande a cet instant. A une borne (enforce), la
+        lampe prend l'etat du programme dans les deux sens : allumee au
+        depart en pleine plage, eteinte si le programme ne la veut pas."""
         held = state.get("held_job")
         if held is not None:
             if held != sched.on_job_id(self._settings):
@@ -189,8 +207,10 @@ class Supervisor:
 
         program = sched.load(self._settings)
         if not program.get("enabled"):
-            return
+            return   # pas de programme : la lampe ne se pilote qu'a la main
         if not sched.should_be_on(program, now_local()):
+            if enforce:
+                self._switch_off_outside_program(state)
             return
         try:
             if not self._plug.status()["on"]:
@@ -202,6 +222,19 @@ class Supervisor:
                 state["auto_on"] = True
                 state["manual_on"] = False
                 self._settings.set(presence.STATE_KEY, state)
-                log.info("fin de priorite : programme repris, lampe rallumee")
+                log.info("programme repris, lampe rallumee")
         except ShellyError as exc:
             log.warning("reprise du programme impossible: %s", exc)
+
+    def _switch_off_outside_program(self, state):
+        """Borne hors des heures du programme : une lampe restee allumee a
+        la main, par exemple au depart a 02:00, s'eteint."""
+        try:
+            if self._plug.status()["on"]:
+                self._plug.set(False)
+                state["auto_on"] = False
+                state["manual_on"] = False
+                self._settings.set(presence.STATE_KEY, state)
+                log.info("hors programme : lampe eteinte")
+        except ShellyError as exc:
+            log.warning("extinction hors programme impossible: %s", exc)
