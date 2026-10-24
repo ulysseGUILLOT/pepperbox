@@ -33,7 +33,7 @@ Avec [PlatformIO](https://platformio.org), depuis ce dossier :
 Sortie attendue, le modèle détecté puis une mesure toutes les cinq secondes :
 
     capteur detecte : SHT4x
-    23.4 °C  58.1 %HR  wifi 192.168.1.42 -61 dBm  serveur ok
+    23.4 °C bon  58.1 %HR  wifi 192.168.1.42 -61 dBm  serveur ok
 
 Sans capteur branché, la ligne commence par `capteur introuvable` ; le Wi-Fi
 et le serveur sont vérifiés quand même.
@@ -41,15 +41,43 @@ et le serveur sont vérifiés quand même.
 `secrets.h` est ignoré par git ; sans lui, la compilation s'arrête sur un
 message qui le dit.
 
+## LED
+
+La LED RGB de la carte (WS2812, GPIO 48) montre la température de la box :
+
+| Couleur | Température | Constante |
+|---|---|---|
+| Bleu | sous 22 °C | `TEMP_COLD_C` |
+| Vert | de 22 à 28 °C | |
+| Rouge | au-dessus de 28 °C | `TEMP_HOT_C` |
+| Éteinte | pas de mesure | |
+
+Les bornes sont la plage de croissance du guide de culture, lampe allumée.
+Elles valent jour et nuit : la carte ne dépend ni du serveur ni de l'état de
+la lampe, et la nuit la LED passe au bleu dès que la box descend sous 22 °C.
+Un demi-degré d'hystérésis évite le clignotement autour d'une borne.
+
+Au démarrage, la LED passe par le bleu, le vert et le rouge, puis s'éteint
+jusqu'à la première mesure. L'intensité est volontairement basse
+(`LED_LEVEL`) : elle éclaire la box toute la nuit. Sur une DevKitC-1 v1.1,
+la LED est sur GPIO 38 et non 48.
+
 ## Serveur
 
-La carte appelle `GET /api/health` en production, à la même adresse que le
+La carte envoie un battement à la production, à la même adresse que le
 tableau de bord, une fois par minute et dès que le Wi-Fi revient :
+
+    POST /api/box/heartbeat   {"ip": "192.168.1.131", "rssi_dbm": -46, "uptime_s": 3600}
+
+Le tableau de bord la montre en ligne tant que le dernier battement date de
+moins de trois minutes (`BOX_TIMEOUT` côté serveur). L'adresse vient de la
+carte elle-même : le serveur ne voit que celle du retour de boucle NAT.
 
 | Affichage | Signification |
 |---|---|
-| `serveur ok` | Le backend répond |
+| `serveur ok` | Le backend a enregistré le battement |
 | `serveur HTTP 403` | Apache n'a pas reconnu la carte comme étant du réseau local |
+| `serveur HTTP 404` | Le backend déployé ne connaît pas encore la route |
 | `serveur HTTP 502` / `503` | Apache répond, mais pas les conteneurs derrière lui |
 | `serveur injoignable (…)` | Pas de connexion, ou certificat refusé |
 

@@ -1,3 +1,4 @@
+import Box from '../components/Box.jsx'
 import Fixture from '../components/Fixture.jsx'
 import Presence from '../components/Presence.jsx'
 import Program from '../components/Program.jsx'
@@ -73,6 +74,7 @@ export default function Dashboard({
             <Telemetry status={error ? null : status} />
           </div>
           <Presence state={status?.presence} onOpenSettings={onOpenSettings} />
+          <Box />
         </aside>
       </main>
 

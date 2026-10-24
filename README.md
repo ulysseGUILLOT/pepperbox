@@ -57,6 +57,8 @@ qu'en production, sans savoir qu'il parle à un faux. Depuis sa page on peut :
 - appuyer sur le bouton physique de la prise ;
 - couper la prise du réseau ;
 - déclarer « j'arrive » ou « je pars », comme le ferait le raccourci iOS ;
+- débrancher le capteur de la box, dont la carte ESP32 envoie sinon son
+  battement chaque minute ;
 - lire les programmes posés sur la prise et le journal des événements.
 
 Les programmes sont réellement exécutés, à l'heure locale. Trois comportements
@@ -121,6 +123,8 @@ l'adresse `192.168.1.254`.
 | GET / PUT | `/api/settings` | `{"price_per_kwh"}` — mise à jour partielle |
 | POST | `/api/presence/token` | Crée le jeton, affiché une seule fois |
 | POST | `/api/presence/event` | `{"state": "home"\|"away", "at": ISO 8601}` |
+| GET | `/api/box` | Carte ESP32 : en ligne, dernier battement, IP, signal |
+| POST | `/api/box/heartbeat` | `{"ip", "rssi_dbm", "uptime_s"}` — envoyé par la carte |
 
 ## Paramètres
 

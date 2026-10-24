@@ -1,5 +1,7 @@
 // Capteur de climat de la box : lit la temperature et l'humidite d'un SHT
-// et les affiche sur le port serie, avec l'etat du Wi-Fi et du serveur.
+// et les affiche sur le port serie, avec l'etat du Wi-Fi et du serveur. Se
+// signale au serveur une fois par minute, pour que le tableau de bord la
+// montre en ligne.
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <SHTSensor.h>
@@ -19,12 +21,27 @@ constexpr int PIN_SDA = 8;
 constexpr int PIN_SCL = 9;
 constexpr unsigned long READ_INTERVAL_MS = 5000;
 
+// Bornes de la LED : la plage de croissance du guide de culture
+// (frontend/src/views/Guide.jsx), lampe allumee. Une seule plage, jour et
+// nuit, sans dependre du serveur ni de l'etat de la lampe : la nuit, la LED
+// passera au bleu des que la box descend sous 22 °C.
+constexpr float TEMP_COLD_C = 22.0;
+constexpr float TEMP_HOT_C = 28.0;
+// Une temperature qui oscille autour d'une borne ne fait pas clignoter la LED :
+// pour quitter une zone, il faut repasser la borne d'un demi-degre.
+constexpr float TEMP_HYSTERESIS_C = 0.5;
+
+// LED RGB WS2812 de la DevKitC-1, sur GPIO 48 (RGB_BUILTIN). Intensite basse :
+// elle reste allumee toute la nuit dans la box, donc dans l'appartement.
+constexpr uint8_t LED_LEVEL = 16;
+
 // Meme adresse que le tableau de bord : depuis le LAN, le retour de boucle
 // NAT de la Freebox fait passer la carte par Apache, qui l'accepte comme
-// n'importe quel appareil du reseau local. Une minute entre deux appels :
-// chaque appel est une ligne dans les journaux de production.
-constexpr const char *HEALTH_URL = "https://pepperbox.ulysseguillot.fr/api/health";
-constexpr unsigned long PING_INTERVAL_MS = 60000;
+// n'importe quel appareil du reseau local. Une minute entre deux battements :
+// chacun est une ligne dans les journaux de production, et le serveur ne
+// declare la carte hors ligne qu'apres trois manques (BOX_TIMEOUT).
+constexpr const char *HEARTBEAT_URL = "https://pepperbox.ulysseguillot.fr/api/box/heartbeat";
+constexpr unsigned long HEARTBEAT_INTERVAL_MS = 60000;
 
 // Racines de Let's Encrypt. Chaine servie le 2026-10-24 : YE1 -> Root YE ->
 // ISRG Root X2 -> ISRG Root X1, les deux derniers maillons en signatures
@@ -86,11 +103,14 @@ tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1
 std::unique_ptr<SHTSensor> sht;
 bool sensorReady = false;
 
+enum class Climate { Unknown, Cold, Good, Hot };
+Climate climate = Climate::Unknown;
+
 WiFiClientSecure tls;
-// Dernier code HTTP de /api/health, ou erreur negative de HTTPClient.
+// Dernier code HTTP du battement, ou erreur negative de HTTPClient.
 int serverStatus = 0;
-bool pingDue = true;
-unsigned long lastPingMs = 0;
+bool heartbeatDue = true;
+unsigned long lastHeartbeatMs = 0;
 
 // Seuls les types que la detection automatique peut renvoyer. SHTC1 couvre
 // aussi le SHTC3 et les SHTW, qui partagent son protocole.
@@ -105,11 +125,49 @@ const char *sensorName(SHTSensor::SHTSensorType type) {
   }
 }
 
-void pingServer() {
+Climate classify(float celsius, Climate previous) {
+  if (previous == Climate::Cold && celsius < TEMP_COLD_C + TEMP_HYSTERESIS_C) return Climate::Cold;
+  if (previous == Climate::Hot && celsius > TEMP_HOT_C - TEMP_HYSTERESIS_C) return Climate::Hot;
+  if (celsius < TEMP_COLD_C) return Climate::Cold;
+  if (celsius > TEMP_HOT_C) return Climate::Hot;
+  return Climate::Good;
+}
+
+const char *climateName(Climate c) {
+  switch (c) {
+    case Climate::Cold: return "trop froid";
+    case Climate::Good: return "bon";
+    case Climate::Hot: return "trop chaud";
+    default: return "inconnu";
+  }
+}
+
+// Eteinte sans mesure : une couleur figee mentirait sur la temperature.
+void showClimate(Climate c) {
+  switch (c) {
+    case Climate::Cold: neopixelWrite(RGB_BUILTIN, 0, 0, LED_LEVEL); break;
+    case Climate::Good: neopixelWrite(RGB_BUILTIN, 0, LED_LEVEL, 0); break;
+    case Climate::Hot: neopixelWrite(RGB_BUILTIN, LED_LEVEL, 0, 0); break;
+    default: neopixelWrite(RGB_BUILTIN, 0, 0, 0); break;
+  }
+}
+
+// L'adresse est envoyee par la carte : celle que voit le serveur est celle
+// du retour de boucle NAT, commune a tout le LAN.
+void sendHeartbeat() {
+  char body[96];
+  snprintf(body, sizeof body, R"({"ip":"%s","rssi_dbm":%d,"uptime_s":%lu})",
+           WiFi.localIP().toString().c_str(), WiFi.RSSI(), millis() / 1000);
+
   HTTPClient http;
   http.setConnectTimeout(5000);
   http.setTimeout(5000);
-  serverStatus = http.begin(tls, HEALTH_URL) ? http.GET() : HTTPC_ERROR_CONNECTION_REFUSED;
+  if (http.begin(tls, HEARTBEAT_URL)) {
+    http.addHeader("Content-Type", "application/json");
+    serverStatus = http.POST(body);
+  } else {
+    serverStatus = HTTPC_ERROR_CONNECTION_REFUSED;
+  }
   http.end();
 }
 
@@ -127,6 +185,14 @@ void printServer() {
 void setup() {
   Serial.begin(115200);
   Wire.begin(PIN_SDA, PIN_SCL);
+
+  // Les trois couleurs au demarrage : verifie la LED sans attendre une mesure.
+  // La WS2812 garde sa derniere couleur a travers un redemarrage de la carte.
+  for (Climate c : {Climate::Cold, Climate::Good, Climate::Hot}) {
+    showClimate(c);
+    delay(400);
+  }
+  showClimate(Climate::Unknown);
 
   tls.setCACert(LETSENCRYPT_ROOTS);
   tls.setHandshakeTimeout(10);
@@ -147,25 +213,32 @@ void loop() {
     }
   }
 
+  Climate next = Climate::Unknown;
   if (sensorReady && sht->readSample()) {
-    Serial.printf("%.1f °C  %.1f %%HR", sht->getTemperature(), sht->getHumidity());
+    next = classify(sht->getTemperature(), climate);
+    Serial.printf("%.1f °C %s  %.1f %%HR", sht->getTemperature(), climateName(next),
+                  sht->getHumidity());
   } else {
     sensorReady = false;
     Serial.print("capteur introuvable : verifier le cablage SDA/SCL");
   }
+  if (next != climate) {
+    climate = next;
+    showClimate(climate);
+  }
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("  wifi %s %d dBm", WiFi.localIP().toString().c_str(), WiFi.RSSI());
-    if (pingDue || millis() - lastPingMs >= PING_INTERVAL_MS) {
-      pingServer();
-      lastPingMs = millis();
-      pingDue = false;
+    if (heartbeatDue || millis() - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
+      sendHeartbeat();
+      lastHeartbeatMs = millis();
+      heartbeatDue = false;
     }
     printServer();
     Serial.println();
   } else {
-    // Appel immediat au retour du Wi-Fi, sans attendre la minute.
-    pingDue = true;
+    // Battement immediat au retour du Wi-Fi, sans attendre la minute.
+    heartbeatDue = true;
     Serial.println("  wifi deconnecte");
   }
 

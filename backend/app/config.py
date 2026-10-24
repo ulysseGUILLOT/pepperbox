@@ -20,3 +20,7 @@ class Config:
     # Priorite a la presence.
     PRESENCE_INTERVAL = float(os.getenv("PRESENCE_INTERVAL", "30"))
     PRESENCE_RATE_LIMIT = int(os.getenv("PRESENCE_RATE_LIMIT", "10"))
+
+    # Carte ESP32 de la box : un battement par minute, hors ligne apres
+    # trois manques.
+    BOX_TIMEOUT = float(os.getenv("BOX_TIMEOUT", "180"))

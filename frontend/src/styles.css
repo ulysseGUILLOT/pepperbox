@@ -486,13 +486,49 @@ button {
   flex: none;
 }
 
-.presence__state[data-home='true'] {
+.presence__state[data-home='true'],
+.presence__state[data-active='true'] {
   color: var(--text);
 }
 
-.presence__state[data-home='true'] .presence__dot {
+.presence__state[data-home='true'] .presence__dot,
+.presence__state[data-active='true'] .presence__dot {
   background: var(--neon);
   box-shadow: 0 0 8px rgba(255, 35, 64, 0.9);
+}
+
+/* ---- Capteur de la box ---- */
+
+.box__details {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.box__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.box__row:last-child {
+  border-bottom: 0;
+}
+
+.box__value {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.box__hint {
+  margin-left: 0.6em;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .token {

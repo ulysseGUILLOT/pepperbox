@@ -37,6 +37,16 @@ function render(state) {
 
   $('chk-offline').checked = state.offline
 
+  const { board } = state
+  $('chk-board').checked = !board.plugged
+  if (!board.plugged) {
+    text($('board-result'), 'Débranché : aucun battement envoyé.')
+  } else if (board.last) {
+    text($('board-result'), board.last.ok
+      ? `Dernier battement à ${board.last.at} : reçu par le serveur.`
+      : `Dernier battement à ${board.last.at} : refusé (${board.last.detail}).`)
+  }
+
   renderList($('jobs'), state.jobs, (job) => {
     const li = document.createElement('li')
     li.textContent = job.text + (job.enabled ? '' : ' (désactivé)')
@@ -90,6 +100,11 @@ bind('btn-away', () => call('/sim/presence', { state: 'away' }))
 
 $('chk-offline').addEventListener('change', async (event) => {
   await call('/sim/offline', { offline: event.target.checked })
+  refresh()
+})
+
+$('chk-board').addEventListener('change', async (event) => {
+  await call('/sim/board', { plugged: !event.target.checked })
   refresh()
 })
 

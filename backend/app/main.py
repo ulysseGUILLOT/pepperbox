@@ -2,6 +2,7 @@ import logging
 
 from flask import Flask, jsonify, request
 
+from . import box as box_
 from . import preferences as prefs
 from . import presence as pres
 from . import schedule as sched
@@ -33,6 +34,7 @@ def create_app():
     supervisor = Supervisor(lamp, settings,
                             interval=app.config["PRESENCE_INTERVAL"])
     limiter = RateLimiter(max_hits=app.config["PRESENCE_RATE_LIMIT"], window=60.0)
+    box = box_.Box(timeout=app.config["BOX_TIMEOUT"])
 
     current = sched.load(settings)
     settings.set(sched.KEY, current)   # materialise le defaut au premier lancement
@@ -72,6 +74,10 @@ def create_app():
     @app.errorhandler(pres.InvalidPresence)
     def _invalid_presence(exc):
         return jsonify({"error": "presence_invalide", "message": str(exc)}), 400
+
+    @app.errorhandler(box_.InvalidHeartbeat)
+    def _invalid_heartbeat(exc):
+        return jsonify({"error": "battement_invalide", "message": str(exc)}), 400
 
     # ---- lampe ----
 
@@ -134,6 +140,17 @@ def create_app():
     def put_settings():
         changes = prefs.parse(request.get_json(silent=True))
         return jsonify(prefs.save(settings, app.config, changes))
+
+    # ---- carte ESP32 de la box (reseau local uniquement) ----
+
+    @app.get("/api/box")
+    def get_box():
+        return jsonify(box.snapshot())
+
+    @app.post("/api/box/heartbeat")
+    def box_heartbeat():
+        box.record(box_.parse(request.get_json(silent=True)))
+        return jsonify(box.snapshot())
 
     # ---- presence (reseau local uniquement) ----
 

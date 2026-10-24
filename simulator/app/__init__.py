@@ -4,15 +4,19 @@ import time
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from .board import Board
 from .phone import Phone
 from .rpc import make_blueprint
-from .world import World
+from .world import TZ, World
 
 
 def create_app():
     app = Flask(__name__, static_folder="static", static_url_path="/static")
     world = World()
-    phone = Phone(os.getenv("PEPPERBOX_API", "http://api:8000"))
+    api = os.getenv("PEPPERBOX_API", "http://api:8000")
+    phone = Phone(api)
+    board = Board(api, TZ)
+    board.start()
 
     app.register_blueprint(make_blueprint(world))
 
@@ -34,7 +38,8 @@ def create_app():
 
     @app.get("/sim/state")
     def state():
-        return jsonify({**world.snapshot(), "phone": phone.last})
+        return jsonify({**world.snapshot(), "phone": phone.last,
+                        "board": board.snapshot()})
 
     @app.post("/sim/button")
     def button():
@@ -48,6 +53,14 @@ def create_app():
         world.log("reseau", "Prise coupée du réseau" if world.offline
                   else "Prise de retour sur le réseau")
         return jsonify(world.snapshot())
+
+    @app.post("/sim/board")
+    def board_plug():
+        payload = request.get_json(silent=True) or {}
+        board.plug(bool(payload.get("plugged")))
+        world.log("capteur", "Capteur rebranché" if board.plugged
+                  else "Capteur débranché")
+        return jsonify(board.snapshot())
 
     @app.post("/sim/presence")
     def presence():

@@ -28,6 +28,8 @@ export const savePresence = (presence) =>
 export const issuePresenceToken = () =>
   request('/api/presence/token', { method: 'POST' })
 
+export const getBox = (signal) => request('/api/box', { signal })
+
 export const getSettings = (signal) => request('/api/settings', { signal })
 
 export const saveSettings = (changes) =>
