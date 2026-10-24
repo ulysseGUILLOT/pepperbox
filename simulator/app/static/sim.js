@@ -69,9 +69,17 @@ function render(state) {
 
 const LED_LABELS = {
   off: 'LED éteinte',
-  cold: 'LED bleue : trop froid',
-  good: 'LED verte : température bonne',
-  hot: 'LED rouge : trop chaud',
+  cold: 'LED vers le bleu : trop froid',
+  good: 'LED vers le vert : dans la plage',
+  hot: 'LED vers le rouge : trop chaud',
+}
+
+// Teinte de la vraie LED, ramenee a pleine intensite pour l'ecran : a
+// moitie-moitie, la WS2812 donne du jaune, pas un olive sombre.
+function ledColor(rgb) {
+  const top = Math.max(...rgb)
+  const [r, g, b] = rgb.map((c) => Math.round((c / top) * 255))
+  return `rgb(${r}, ${g}, ${b})`
 }
 
 const fmtTemp = (value) => `${value.toFixed(1)} °C`
@@ -92,6 +100,10 @@ function renderBoard(board, plugOffline) {
   box.dataset.board = board.plugged ? 'true' : 'false'
   box.dataset.sensor = sensor.connected ? 'true' : 'false'
   box.dataset.led = board.led
+  const led = box.querySelector('.esp__led')
+  const color = board.led_rgb ? ledColor(board.led_rgb) : ''
+  led.style.fill = color
+  led.style.filter = color ? `drop-shadow(0 0 5px ${color})` : ''
 
   text($('led-state'), board.plugged ? LED_LABELS[board.led] : 'Carte débranchée')
   text($('climate-figures'), sensor.connected
@@ -99,9 +111,13 @@ function renderBoard(board, plugOffline) {
     : 'capteur débranché')
 
   const span = bounds.max - bounds.min
+  const at = (celsius) => `${((celsius - bounds.min) / span) * 100}%`
   const slider = $('slider-temp')
-  slider.style.setProperty('--cold', `${((bounds.cold - bounds.min) / span) * 100}%`)
-  slider.style.setProperty('--hot', `${((bounds.hot - bounds.min) / span) * 100}%`)
+  slider.style.setProperty('--full-cold', at(bounds.cold - bounds.gradient))
+  slider.style.setProperty('--cold', at(bounds.cold))
+  slider.style.setProperty('--center', at((bounds.cold + bounds.hot) / 2))
+  slider.style.setProperty('--hot', at(bounds.hot))
+  slider.style.setProperty('--full-hot', at(bounds.hot + bounds.gradient))
   text($('mark-cold'), `${bounds.cold} °C`)
   text($('mark-hot'), `${bounds.hot} °C`)
 

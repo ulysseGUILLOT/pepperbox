@@ -17,10 +17,12 @@ INTERVAL_SECONDS = 60
 BOARD_IP = "192.168.1.131"
 FIRMWARE = "simulateur"
 
-# Memes bornes que firmware/src/main.cpp : a modifier ensemble.
+# Memes bornes et meme degrade que firmware/src/main.cpp : a modifier ensemble.
 TEMP_COLD_C = 22.0
 TEMP_HOT_C = 28.0
 TEMP_HYSTERESIS_C = 0.5
+TEMP_GRADIENT_C = 3.0
+LED_LEVEL = 16
 
 TEMP_RANGE = (5.0, 45.0)
 HUMIDITY_RANGE = (0.0, 100.0)
@@ -30,9 +32,23 @@ class InvalidSensor(ValueError):
     pass
 
 
+def led_color(celsius):
+    """Composantes (rouge, vert, bleu) de la LED, de 0 a 1, comme
+    showTemperature() du firmware : vert pur au milieu de la plage,
+    moitie-moitie a une borne, couleur pure TEMP_GRADIENT_C plus loin. Les
+    memes LED_LEVEL paliers que la vraie LED."""
+    center = (TEMP_COLD_C + TEMP_HOT_C) / 2
+    reach = (TEMP_HOT_C - TEMP_COLD_C) / 2 + TEMP_GRADIENT_C
+    x = max(-1.0, min(1.0, (celsius - center) / reach))
+    # Arrondi au plus proche, demis vers le haut, comme lroundf().
+    mix = int(abs(x) * LED_LEVEL + 0.5) / LED_LEVEL
+    return (mix, 1 - mix, 0.0) if x >= 0 else (0.0, 1 - mix, mix)
+
+
 def classify(celsius, previous):
-    """Zone de la LED, avec l'hysteresis du firmware : pour quitter une
-    zone, il faut repasser la borne d'un demi-degre."""
+    """Zone de temperature, avec l'hysteresis de l'affichage serie du
+    firmware : pour quitter une zone, il faut repasser la borne d'un
+    demi-degre."""
     if previous == "cold" and celsius < TEMP_COLD_C + TEMP_HYSTERESIS_C:
         return "cold"
     if previous == "hot" and celsius > TEMP_HOT_C - TEMP_HYSTERESIS_C:
@@ -152,7 +168,10 @@ class Board:
                     "humidity_pct": self.humidity_pct,
                 },
                 "led": self.led(),
+                # Teinte exacte de la LED, null quand elle est eteinte.
+                "led_rgb": None if self.led() == "off" else led_color(self.temperature_c),
                 # La page en tire les zones du curseur : une seule source.
                 "bounds": {"cold": TEMP_COLD_C, "hot": TEMP_HOT_C,
+                           "gradient": TEMP_GRADIENT_C,
                            "min": TEMP_RANGE[0], "max": TEMP_RANGE[1]},
             }

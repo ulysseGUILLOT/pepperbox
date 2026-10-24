@@ -142,11 +142,8 @@ button { font: inherit; }
 .esp__name { font-family: var(--mono); font-size: 6px; text-anchor: middle; fill: #2b3037; }
 .esp__port { fill: #9aa3ad; }
 .esp__label { font-family: var(--mono); font-size: 9px; text-anchor: middle; fill: #8b939c; }
+/* Eteinte par defaut ; sim.js pose la teinte du degrade quand elle brille. */
 .esp__led { fill: #2b3037; transition: fill 0.3s ease; }
-
-.box[data-led='cold'] .esp__led { fill: #3b82f6; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.95)); }
-.box[data-led='good'] .esp__led { fill: #22c55e; filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.95)); }
-.box[data-led='hot'] .esp__led { fill: #ff2340; filter: drop-shadow(0 0 5px rgba(255, 35, 64, 0.95)); }
 
 .esp__board, .esp__usb, .sht { transition: opacity 0.3s ease; }
 .box[data-board='false'] .esp__board { opacity: 0.45; }
@@ -250,7 +247,8 @@ button { font: inherit; }
   accent-color: var(--ink);
 }
 
-/* Zones de la LED sous le curseur de temperature ; --cold et --hot sont
+/* Degrade de la LED sous le curseur de temperature : bleu pur, moitie-moitie
+   a la borne, vert au milieu, moitie-moitie, rouge pur. Les positions sont
    posees par sim.js depuis les bornes du simulateur. */
 .slider__bands {
   position: relative;
@@ -258,9 +256,11 @@ button { font: inherit; }
   margin: 4px 0 18px;
   border-radius: 2px;
   background: linear-gradient(to right,
-    #3b82f6 0 var(--cold, 42.5%),
-    #22c55e var(--cold, 42.5%) var(--hot, 57.5%),
-    #ff2340 var(--hot, 57.5%) 100%);
+    #0000ff 0 var(--full-cold, 35%),
+    #00ffff var(--cold, 42.5%),
+    #00ff00 var(--center, 50%),
+    #ffff00 var(--hot, 57.5%),
+    #ff0000 var(--full-hot, 65%) 100%);
 }
 
 .slider__mark {

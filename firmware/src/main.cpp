@@ -32,21 +32,27 @@ constexpr int PIN_SDA = 8;
 constexpr int PIN_SCL = 9;
 constexpr unsigned long READ_INTERVAL_MS = 5000;
 
-// Bornes de la LED : la plage de croissance du guide de culture
+// Plage visee : celle de croissance du guide de culture
 // (frontend/src/views/Guide.jsx), lampe allumee. Une seule plage, jour et
-// nuit, sans dependre du serveur ni de l'etat de la lampe : la nuit, la LED
-// passera au bleu des que la box descend sous 22 °C.
+// nuit, sans dependre du serveur ni de l'etat de la lampe.
 // Reprises par la carte du simulateur (simulator/app/board.py) : a modifier
 // ensemble.
 constexpr float TEMP_COLD_C = 22.0;
 constexpr float TEMP_HOT_C = 28.0;
-// Une temperature qui oscille autour d'une borne ne fait pas clignoter la LED :
-// pour quitter une zone, il faut repasser la borne d'un demi-degre.
+// Pour l'affichage serie (bon, trop froid, trop chaud) : une temperature qui
+// oscille autour d'une borne ne bascule pas a chaque mesure.
 constexpr float TEMP_HYSTERESIS_C = 0.5;
 
 // LED RGB WS2812 de la DevKitC-1, sur GPIO 48 (RGB_BUILTIN). Intensite basse :
 // elle reste allumee toute la nuit dans la box, donc dans l'appartement.
 constexpr uint8_t LED_LEVEL = 16;
+// Degrade : vert pur au milieu de la plage, moitie-moitie a une borne, puis
+// couleur pure TEMP_GRADIENT_C plus loin -- rouge franc a 31 °C, bleu franc a
+// 19 °C. La somme des composantes reste LED_LEVEL : meme luminosite partout.
+constexpr float TEMP_GRADIENT_C = 3.0;
+// En dessous, la LED ne change pas : le bruit de mesure ne la fait pas
+// scintiller d'une teinte a sa voisine.
+constexpr float LED_STEP_C = 0.2;
 
 // Meme adresse que le tableau de bord : depuis le LAN, le retour de boucle
 // NAT de la Freebox fait passer la carte par Apache, qui l'accepte comme
@@ -121,6 +127,8 @@ bool sensorReady = false;
 
 enum class Climate { Unknown, Cold, Good, Hot };
 Climate climate = Climate::Unknown;
+// Temperature affichee par la LED ; NAN quand elle est eteinte.
+float ledTemperature = NAN;
 
 // Derniere mesure, envoyee avec le battement ; NAN sans capteur.
 float lastTemperature = NAN;
@@ -168,13 +176,24 @@ const char *climateName(Climate c) {
   }
 }
 
-// Eteinte sans mesure : une couleur figee mentirait sur la temperature.
-void showClimate(Climate c) {
-  switch (c) {
-    case Climate::Cold: neopixelWrite(RGB_BUILTIN, 0, 0, LED_LEVEL); break;
-    case Climate::Good: neopixelWrite(RGB_BUILTIN, 0, LED_LEVEL, 0); break;
-    case Climate::Hot: neopixelWrite(RGB_BUILTIN, LED_LEVEL, 0, 0); break;
-    default: neopixelWrite(RGB_BUILTIN, 0, 0, 0); break;
+// Couleur de la LED pour une temperature, NAN eteinte : une couleur figee
+// mentirait sur la temperature. Le vert cede au rouge vers le chaud, au bleu
+// vers le froid.
+void showTemperature(float celsius) {
+  ledTemperature = celsius;
+  if (isnan(celsius)) {
+    neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+    return;
+  }
+  const float center = (TEMP_COLD_C + TEMP_HOT_C) / 2;
+  const float reach = (TEMP_HOT_C - TEMP_COLD_C) / 2 + TEMP_GRADIENT_C;
+  const float x = constrain((celsius - center) / reach, -1.0f, 1.0f);
+  const uint8_t mix = lroundf(fabsf(x) * LED_LEVEL);
+  const uint8_t green = LED_LEVEL - mix;
+  if (x >= 0) {
+    neopixelWrite(RGB_BUILTIN, mix, green, 0);
+  } else {
+    neopixelWrite(RGB_BUILTIN, 0, green, mix);
   }
 }
 
@@ -248,8 +267,8 @@ void startOta() {
   ArduinoOTA.onEnd([]() { Serial.println("mise a jour : terminee, redemarrage"); });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("mise a jour : echec (%u)\n", error);
-    climate = Climate::Unknown;
-    showClimate(climate);
+    // Eteinte : la mesure suivante la rallume a la bonne couleur.
+    showTemperature(NAN);
   });
   ArduinoOTA.begin();
   otaStarted = true;
@@ -261,13 +280,16 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(PIN_SDA, PIN_SCL);
 
-  // Les trois couleurs au demarrage : verifie la LED sans attendre une mesure.
-  // La WS2812 garde sa derniere couleur a travers un redemarrage de la carte.
-  for (Climate c : {Climate::Cold, Climate::Good, Climate::Hot}) {
-    showClimate(c);
-    delay(400);
+  // Tout le degrade au demarrage, du bleu au rouge en passant par le vert :
+  // verifie la LED sans attendre une mesure. La WS2812 garde sa derniere
+  // couleur a travers un redemarrage de la carte, d'ou l'extinction finale.
+  const float sweepFrom = TEMP_COLD_C - TEMP_GRADIENT_C;
+  const float sweepTo = TEMP_HOT_C + TEMP_GRADIENT_C;
+  for (int i = 0; i <= 40; i++) {
+    showTemperature(sweepFrom + (sweepTo - sweepFrom) * i / 40);
+    delay(30);
   }
-  showClimate(Climate::Unknown);
+  showTemperature(NAN);
 
   tls.setCACert(LETSENCRYPT_ROOTS);
   tls.setHandshakeTimeout(10);
@@ -313,9 +335,11 @@ void loop() {
     lastHumidity = NAN;
     Serial.print("capteur introuvable : verifier le cablage SDA/SCL");
   }
-  if (next != climate) {
-    climate = next;
-    showClimate(climate);
+  climate = next;
+  // Allumee ou eteinte : toujours. Teinte : seulement au-dela d'un pas.
+  if (isnan(lastTemperature) != isnan(ledTemperature)
+      || fabsf(lastTemperature - ledTemperature) >= LED_STEP_C) {
+    showTemperature(lastTemperature);
   }
 
   if (WiFi.status() == WL_CONNECTED) {

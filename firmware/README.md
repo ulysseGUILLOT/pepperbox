@@ -49,22 +49,31 @@ l'affiche, ce qui confirme qu'une mise à jour a pris.
 
 ## LED
 
-La LED RGB de la carte (WS2812, GPIO 48) montre la température de la box :
+La LED RGB de la carte (WS2812, GPIO 48) montre la température de la box en
+dégradé : le vert cède au rouge vers le chaud, au bleu vers le froid.
 
-| Couleur | Température | Constante |
-|---|---|---|
-| Bleu | sous 22 °C | `TEMP_COLD_C` |
-| Vert | de 22 à 28 °C | |
-| Rouge | au-dessus de 28 °C | `TEMP_HOT_C` |
-| Éteinte | pas de mesure | |
+| Température | Couleur |
+|---|---|
+| 19 °C et moins | bleu pur |
+| 22 °C, borne basse (`TEMP_COLD_C`) | moitié bleu, moitié vert |
+| 25 °C, milieu de la plage | vert pur |
+| 28 °C, borne haute (`TEMP_HOT_C`) | moitié vert, moitié rouge |
+| 31 °C et plus | rouge pur |
+| pas de mesure | éteinte |
+
+Une teinte à moitié mélangée signale donc une borne ; la couleur devient pure
+`TEMP_GRADIENT_C` (3 °C) plus loin. La somme des composantes reste
+`LED_LEVEL` : la luminosité ne change pas avec la teinte. La LED ne change
+qu'à partir de 0,2 °C d'écart (`LED_STEP_C`), pour que le bruit de mesure ne
+la fasse pas scintiller.
 
 Les bornes sont la plage de croissance du guide de culture, lampe allumée.
 Elles valent jour et nuit : la carte ne dépend ni du serveur ni de l'état de
-la lampe, et la nuit la LED passe au bleu dès que la box descend sous 22 °C.
-Un demi-degré d'hystérésis évite le clignotement autour d'une borne.
+la lampe, et la nuit la LED tire vers le bleu dès que la box se refroidit.
+Le simulateur reproduit le même dégradé (`simulator/app/board.py`).
 
-Au démarrage, la LED passe par le bleu, le vert et le rouge, puis s'éteint
-jusqu'à la première mesure. L'intensité est volontairement basse
+Au démarrage, la LED parcourt tout le dégradé, du bleu au rouge, puis
+s'éteint jusqu'à la première mesure. L'intensité est volontairement basse
 (`LED_LEVEL`) : elle éclaire la box toute la nuit. Sur une DevKitC-1 v1.1,
 la LED est sur GPIO 38 et non 48.
 

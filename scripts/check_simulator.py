@@ -196,8 +196,10 @@ def main():
     check("la carte est en ligne et transmet sa mesure",
           b.get("online") is True and b.get("temperature_c") == 31.5 and b.get("humidity_pct") == 64,
           f"online={b.get('online')} {b.get('temperature_c')} °C {b.get('humidity_pct')} %HR")
-    led = http("GET", f"{SIM}/state")[1]["board"]["led"]
-    check("au-dessus de 28 °C, sa LED est rouge", led == "hot", f"led={led}")
+    board = http("GET", f"{SIM}/state")[1]["board"]
+    check("à 31,5 °C, au-delà du dégradé, sa LED est rouge franc",
+          board["led"] == "hot" and board["led_rgb"] == [1.0, 0.0, 0.0],
+          f"led={board['led']} rgb={board['led_rgb']}")
     points = http("GET", f"{API}/climate?hours=1")[1]["points"]
     check("la mesure est historisée", bool(points) and points[-1]["t"] >= time.time() - 120,
           f"{len(points)} point(s)")
