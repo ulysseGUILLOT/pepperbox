@@ -1,8 +1,16 @@
+import { getBox } from '../api.js'
+import Climate from '../components/Climate.jsx'
 import Devices from '../components/Devices.jsx'
 import Fixture from '../components/Fixture.jsx'
 import Presence from '../components/Presence.jsx'
 import Program from '../components/Program.jsx'
 import Telemetry from '../components/Telemetry.jsx'
+import usePolling from '../usePolling.js'
+
+// La carte bat une fois par minute : inutile de la suivre a 2 s comme la
+// lampe. Interrogee a part de /api/lamp, qui echoue quand la prise ne
+// repond pas : la carte doit rester visible dans ce cas.
+const BOX_POLL_MS = 5000
 
 function formatDuration(seconds) {
   const s = Math.floor(seconds)
@@ -23,6 +31,7 @@ export default function Dashboard({
   onOpenSettings,
 }) {
   const on = status?.on ?? false
+  const [box, boxError] = usePolling(getBox, BOX_POLL_MS)
 
   return (
     <>
@@ -77,7 +86,9 @@ export default function Dashboard({
         </aside>
       </main>
 
-      <Devices status={status} error={error} loading={loading} />
+      <Climate box={box} />
+
+      <Devices status={status} error={error} loading={loading} box={box} boxError={boxError} />
 
       <Program onApplied={onRefresh} />
     </>

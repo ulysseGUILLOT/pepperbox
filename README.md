@@ -76,7 +76,8 @@ Vérification des scénarios, environ six minutes en temps réel :
 ## Déploiement
 
 Chaque push sur `main` déclenche `.github/workflows/deploy.yml`, sauf s'il ne
-touche que `firmware/` :
+touche que `firmware/`, que `.github/workflows/firmware.yml` se contente de
+compiler (voir `firmware/README.md`) :
 
 1. **build** — les deux images sont construites pour `linux/arm64` et poussées
    sur `ghcr.io/ulysseguillot/pepperbox-{api,web}`. Rien n'est compilé sur la
@@ -126,8 +127,9 @@ l'adresse `192.168.1.254`.
 | GET / PUT | `/api/settings` | `{"price_per_kwh"}` — mise à jour partielle |
 | POST | `/api/presence/token` | Crée le jeton, affiché une seule fois |
 | POST | `/api/presence/event` | `{"state": "home"\|"away", "at": ISO 8601}` |
-| GET | `/api/box` | Carte ESP32 : en ligne, dernier battement, IP, signal |
-| POST | `/api/box/heartbeat` | `{"ip", "rssi_dbm", "uptime_s"}` — envoyé par la carte |
+| GET | `/api/box` | Carte ESP32 : en ligne, dernier battement, IP, signal, dernière mesure, firmware |
+| POST | `/api/box/heartbeat` | `{"ip", "rssi_dbm", "uptime_s", "temperature_c", "humidity_pct", "firmware"}` — envoyé par la carte, mesures à `null` sans capteur |
+| GET | `/api/climate?hours=24` | Historique du climat de la box, moyenné en ~288 points, et la plage visée |
 
 ## Paramètres
 

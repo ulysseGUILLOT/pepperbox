@@ -1,4 +1,5 @@
 import logging
+import time
 
 from flask import Flask, jsonify, request
 
@@ -8,7 +9,7 @@ from . import presence as pres
 from . import schedule as sched
 from .clock import now_local
 from .config import Config
-from .db import Settings
+from .db import Climate, Settings
 from .ratelimit import RateLimiter, client_ip
 from .shelly import ShellyError, ShellyPlug
 from .supervisor import Supervisor
@@ -35,6 +36,8 @@ def create_app():
                             interval=app.config["PRESENCE_INTERVAL"])
     limiter = RateLimiter(max_hits=app.config["PRESENCE_RATE_LIMIT"], window=60.0)
     box = box_.Box(timeout=app.config["BOX_TIMEOUT"])
+    climate = Climate(app.config["DB_PATH"],
+                      retention_days=app.config["CLIMATE_RETENTION_DAYS"])
 
     current = sched.load(settings)
     settings.set(sched.KEY, current)   # materialise le defaut au premier lancement
@@ -149,8 +152,37 @@ def create_app():
 
     @app.post("/api/box/heartbeat")
     def box_heartbeat():
-        box.record(box_.parse(request.get_json(silent=True)))
+        beat = box_.parse(request.get_json(silent=True))
+        box.record(beat)
+        # Sans capteur, la carte bat quand meme : rien a historiser.
+        if beat["temperature_c"] is not None or beat["humidity_pct"] is not None:
+            climate.record(time.time(), beat["temperature_c"], beat["humidity_pct"])
         return jsonify(box.snapshot())
+
+    # Une trentaine de jours au plus : au-dela, la courbe n'apprend plus rien
+    # et la requete parcourt toute la table.
+    CLIMATE_MAX_HOURS = 24 * 31
+    # Points renvoyes, quelle que soit la duree : assez pour une courbe nette.
+    CLIMATE_POINTS = 288
+
+    @app.get("/api/climate")
+    def get_climate():
+        raw = request.args.get("hours", "24")
+        hours = int(raw) if raw.isdigit() else 0
+        if not 1 <= hours <= CLIMATE_MAX_HOURS:
+            return jsonify({
+                "error": "requete_invalide",
+                "message": f"'hours' doit etre un entier entre 1 et {CLIMATE_MAX_HOURS}.",
+            }), 400
+        # Une minute au moins : c'est le rythme des battements.
+        bucket = max(60, hours * 3600 // CLIMATE_POINTS)
+        return jsonify({
+            "hours": hours,
+            "bucket_s": bucket,
+            "cold_c": app.config["CLIMATE_COLD_C"],
+            "hot_c": app.config["CLIMATE_HOT_C"],
+            "points": climate.series(time.time() - hours * 3600, bucket),
+        })
 
     # ---- presence (reseau local uniquement) ----
 

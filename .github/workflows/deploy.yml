@@ -10,10 +10,11 @@ on:
   push:
     branches: [main]
     # Le firmware se flashe a la main sur l'ESP32 : un commit qui ne touche
-    # que lui n'a aucune raison de reconstruire les images ni de redemarrer
-    # la production.
+    # que lui, ou que sa compilation dans le CI, n'a aucune raison de
+    # reconstruire les images ni de redemarrer la production.
     paths-ignore:
       - 'firmware/**'
+      - '.github/workflows/firmware.yml'
   workflow_dispatch:
 
 concurrency:

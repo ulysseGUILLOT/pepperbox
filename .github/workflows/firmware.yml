@@ -1,0 +1,45 @@
+name: Firmware
+
+# Verifie que le firmware compile encore. Il n'est pas deploye : il se flashe
+# a la main, en USB ou par le Wi-Fi (firmware/ota.ps1). Le binaire produit ici
+# porte des secrets factices, il n'est donc pas publie.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Plateforme, chaine de compilation et framework : pres d'un Go a
+      # telecharger, et figes par les versions epinglees de platformio.ini.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ hashFiles('firmware/platformio.ini') }}
+
+      # Meme version que celle qui compile en local.
+      - run: pip install platformio==6.2.0
+
+      # secrets.h est ignore par git : l'exemple suffit a compiler.
+      - run: cp firmware/include/secrets.example.h firmware/include/secrets.h
+
+      - run: pio run -d firmware -e esp32s3
+        env:
+          PLATFORMIO_SETTING_ENABLE_TELEMETRY: 'no'

@@ -1,8 +1,9 @@
-"""Signes de vie de la carte ESP32 de la box.
+"""Signes de vie de la carte ESP32 de la box, et ses mesures.
 
 La carte se manifeste d'elle-meme, une fois par minute ; le serveur ne
-l'interroge jamais. L'etat vit en memoire : apres un redemarrage du
-serveur, la carte reapparait des son battement suivant.
+l'interroge jamais. Son dernier battement vit en memoire : apres un
+redemarrage du serveur, la carte reapparait des le suivant. Les mesures,
+elles, sont historisees en base (db.Climate).
 """
 import ipaddress
 import threading
@@ -11,6 +12,11 @@ import time
 
 class InvalidHeartbeat(ValueError):
     pass
+
+
+# Champs d'un battement, tels que renvoyes par snapshot().
+EMPTY = {key: None for key in ("ip", "rssi_dbm", "uptime_s", "temperature_c",
+                               "humidity_pct", "firmware")}
 
 
 def parse(payload):
@@ -36,6 +42,23 @@ def parse(payload):
         if not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
             raise InvalidHeartbeat(f"'{field}' doit etre un entier entre {low} et {high}.")
         out[field] = value
+
+    # Mesures du SHT : null, ou absentes, tant que le capteur ne repond pas.
+    # Bornes : la plage de mesure des SHT, au-dela c'est une lecture fausse.
+    for field, low, high in (("temperature_c", -40, 125), ("humidity_pct", 0, 100)):
+        value = payload.get(field)
+        if value is not None and (isinstance(value, bool)
+                                  or not isinstance(value, (int, float))
+                                  or not low <= value <= high):
+            raise InvalidHeartbeat(f"'{field}' doit etre null ou un nombre entre {low} et {high}.")
+        out[field] = None if value is None else float(value)
+
+    # Version du firmware : confirme qu'une mise a jour a distance a pris.
+    firmware = payload.get("firmware")
+    if firmware is not None and (not isinstance(firmware, str) or not 0 < len(firmware) <= 40
+                                 or not firmware.isprintable()):
+        raise InvalidHeartbeat("'firmware' doit etre une chaine de 1 a 40 caracteres.")
+    out["firmware"] = firmware
     return out
 
 
@@ -56,14 +79,12 @@ class Box:
     def snapshot(self):
         with self._lock:
             if self._last is None:
-                return {"online": False, "seen_seconds_ago": None,
-                        "ip": None, "rssi_dbm": None, "uptime_s": None}
+                return {"online": False, "seen_seconds_ago": None, **EMPTY}
             age = time.monotonic() - self._at
             return {
                 "online": age <= self._timeout,
                 "seen_seconds_ago": int(age),
-                "ip": self._last["ip"],
-                "rssi_dbm": self._last["rssi_dbm"],
-                # Valeur du dernier battement : la carte a pu redemarrer depuis.
-                "uptime_s": self._last["uptime_s"],
+                # Valeurs du dernier battement : uptime_s compris, la carte a
+                # pu redemarrer depuis.
+                **{key: self._last[key] for key in EMPTY},
             }

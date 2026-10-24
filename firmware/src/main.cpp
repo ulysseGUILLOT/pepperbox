@@ -1,8 +1,9 @@
 // Capteur de climat de la box : lit la temperature et l'humidite d'un SHT
-// et les affiche sur le port serie, avec l'etat du Wi-Fi et du serveur. Se
-// signale au serveur une fois par minute, pour que le tableau de bord la
-// montre en ligne.
+// et les affiche sur le port serie, avec l'etat du Wi-Fi et du serveur.
+// Envoie au serveur, une fois par minute, un battement qui porte la derniere
+// mesure. Se met a jour par le Wi-Fi (OTA).
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <HTTPClient.h>
 #include <SHTSensor.h>
 #include <WiFi.h>
@@ -15,6 +16,16 @@
 #error "include/secrets.h manquant : copier include/secrets.example.h"
 #endif
 #include "secrets.h"
+#ifndef OTA_PASSWORD
+#error "OTA_PASSWORD manquant dans include/secrets.h : voir include/secrets.example.h"
+#endif
+
+// Ecrit par version.py avant chaque compilation.
+#if __has_include("version.h")
+#include "version.h"
+#else
+#define FIRMWARE_VERSION "inconnue"
+#endif
 
 // Broches I2C par defaut de l'ESP32-S3 dans le core Arduino.
 constexpr int PIN_SDA = 8;
@@ -44,6 +55,9 @@ constexpr uint8_t LED_LEVEL = 16;
 // declare la carte hors ligne qu'apres trois manques (BOX_TIMEOUT).
 constexpr const char *HEARTBEAT_URL = "https://pepperbox.ulysseguillot.fr/api/box/heartbeat";
 constexpr unsigned long HEARTBEAT_INTERVAL_MS = 60000;
+
+// Nom annonce en mDNS pour la mise a jour par le Wi-Fi : pepperbox-box.local.
+constexpr const char *OTA_HOSTNAME = "pepperbox-box";
 
 // Racines de Let's Encrypt. Chaine servie le 2026-10-24 : YE1 -> Root YE ->
 // ISRG Root X2 -> ISRG Root X1, les deux derniers maillons en signatures
@@ -108,11 +122,21 @@ bool sensorReady = false;
 enum class Climate { Unknown, Cold, Good, Hot };
 Climate climate = Climate::Unknown;
 
+// Derniere mesure, envoyee avec le battement ; NAN sans capteur.
+float lastTemperature = NAN;
+float lastHumidity = NAN;
+unsigned long lastReadMs = 0;
+
 WiFiClientSecure tls;
 // Dernier code HTTP du battement, ou erreur negative de HTTPClient.
 int serverStatus = 0;
 bool heartbeatDue = true;
 unsigned long lastHeartbeatMs = 0;
+
+// L'OTA ne demarre qu'une fois le Wi-Fi connecte : mDNS a besoin d'une
+// adresse pour s'annoncer.
+bool otaStarted = false;
+int otaLastTenth = -1;
 
 // Seuls les types que la detection automatique peut renvoyer. SHTC1 couvre
 // aussi le SHTC3 et les SHTW, qui partagent son protocole.
@@ -156,10 +180,27 @@ void showClimate(Climate c) {
 
 // L'adresse est envoyee par la carte : celle que voit le serveur est celle
 // du retour de boucle NAT, commune a tout le LAN.
+// Sans mesure, null : le serveur garde la carte en ligne sans rien historiser.
+void jsonNumber(char *out, size_t size, float value, const char *format) {
+  if (isnan(value)) {
+    snprintf(out, size, "null");
+  } else {
+    snprintf(out, size, format, value);
+  }
+}
+
 void sendHeartbeat() {
-  char body[96];
-  snprintf(body, sizeof body, R"({"ip":"%s","rssi_dbm":%d,"uptime_s":%lu})",
-           WiFi.localIP().toString().c_str(), WiFi.RSSI(), millis() / 1000);
+  char temperature[12];
+  char humidity[12];
+  jsonNumber(temperature, sizeof temperature, lastTemperature, "%.2f");
+  jsonNumber(humidity, sizeof humidity, lastHumidity, "%.1f");
+
+  char body[224];
+  snprintf(body, sizeof body,
+           R"({"ip":"%s","rssi_dbm":%d,"uptime_s":%lu,)"
+           R"("temperature_c":%s,"humidity_pct":%s,"firmware":"%s"})",
+           WiFi.localIP().toString().c_str(), WiFi.RSSI(), millis() / 1000,
+           temperature, humidity, FIRMWARE_VERSION);
 
   HTTPClient http;
   http.setConnectTimeout(5000);
@@ -184,6 +225,38 @@ void printServer() {
   }
 }
 
+// Mise a jour par le Wi-Fi : espota (pio run -e esp32s3-ota -t upload, ou
+// ota.ps1) envoie le binaire, ecrit dans l'emplacement d'application qui ne
+// tourne pas ; la carte bascule dessus au redemarrage. Une coupure en cours
+// de route laisse l'ancien firmware en place.
+void startOta() {
+  ArduinoOTA.setHostname(OTA_HOSTNAME);
+  ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.onStart([]() {
+    // Blanche le temps de l'ecriture : la carte ne mesure plus rien.
+    neopixelWrite(RGB_BUILTIN, LED_LEVEL, LED_LEVEL, LED_LEVEL);
+    otaLastTenth = -1;
+    Serial.println("mise a jour : reception du firmware");
+  });
+  ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
+    int tenth = done * 10 / total;
+    if (tenth != otaLastTenth) {
+      otaLastTenth = tenth;
+      Serial.printf("mise a jour : %d %%\n", tenth * 10);
+    }
+  });
+  ArduinoOTA.onEnd([]() { Serial.println("mise a jour : terminee, redemarrage"); });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("mise a jour : echec (%u)\n", error);
+    climate = Climate::Unknown;
+    showClimate(climate);
+  });
+  ArduinoOTA.begin();
+  otaStarted = true;
+  Serial.printf("mise a jour par le Wi-Fi prete : %s.local, firmware %s\n", OTA_HOSTNAME,
+                FIRMWARE_VERSION);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(PIN_SDA, PIN_SCL);
@@ -204,7 +277,18 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
+// La boucle ne dort plus cinq secondes d'un bloc : une demande de mise a
+// jour doit etre servie sans attendre la mesure suivante.
 void loop() {
+  if (otaStarted) ArduinoOTA.handle();
+  if (millis() - lastReadMs < READ_INTERVAL_MS && lastReadMs != 0) {
+    delay(10);
+    return;
+  }
+  lastReadMs = millis();
+
+  if (!otaStarted && WiFi.status() == WL_CONNECTED) startOta();
+
   // Retente la detection a chaque tour : un capteur branche apres le
   // demarrage, ou rebranche, est pris en compte sans redemarrer la carte.
   if (!sensorReady) {
@@ -217,11 +301,16 @@ void loop() {
 
   Climate next = Climate::Unknown;
   if (sensorReady && sht->readSample()) {
-    next = classify(sht->getTemperature(), climate);
-    Serial.printf("%.1f °C %s  %.1f %%HR", sht->getTemperature(), climateName(next),
-                  sht->getHumidity());
+    lastTemperature = sht->getTemperature();
+    // En air sature, le SHT peut annoncer un peu plus de 100 % : le serveur
+    // refuserait tout le battement.
+    lastHumidity = constrain(sht->getHumidity(), 0.0f, 100.0f);
+    next = classify(lastTemperature, climate);
+    Serial.printf("%.1f °C %s  %.1f %%HR", lastTemperature, climateName(next), lastHumidity);
   } else {
     sensorReady = false;
+    lastTemperature = NAN;
+    lastHumidity = NAN;
     Serial.print("capteur introuvable : verifier le cablage SDA/SCL");
   }
   if (next != climate) {
@@ -243,6 +332,4 @@ void loop() {
     heartbeatDue = true;
     Serial.println("  wifi deconnecte");
   }
-
-  delay(READ_INTERVAL_MS);
 }

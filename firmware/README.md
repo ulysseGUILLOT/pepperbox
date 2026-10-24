@@ -2,7 +2,8 @@
 
 ESP32-S3 et capteur Sensirion SHT : lit la température et l'humidité de la box
 toutes les cinq secondes et les affiche sur le port série, avec l'état du
-Wi-Fi et du serveur.
+Wi-Fi et du serveur. Envoie la dernière mesure au serveur une fois par
+minute, et se met à jour par le Wi-Fi.
 
 Le modèle du capteur est détecté au démarrage (bibliothèque `arduino-sht` :
 SHT3x, SHT4x, SHTC3, SHT85…). Un capteur branché ou rebranché après le
@@ -38,8 +39,13 @@ Sortie attendue, le modèle détecté puis une mesure toutes les cinq secondes :
 Sans capteur branché, la ligne commence par `capteur introuvable` ; le Wi-Fi
 et le serveur sont vérifiés quand même.
 
-`secrets.h` est ignoré par git ; sans lui, la compilation s'arrête sur un
-message qui le dit.
+`secrets.h` est ignoré par git ; sans lui, ou sans `OTA_PASSWORD`, la
+compilation s'arrête sur un message qui le dit.
+
+Avant chaque compilation, `version.py` inscrit la version git (`git describe
+--always --dirty`, par exemple `cc38ad5-dirty`) dans `include/version.h`,
+lui aussi ignoré. La carte l'envoie avec son battement : le tableau de bord
+l'affiche, ce qui confirme qu'une mise à jour a pris.
 
 ## LED
 
@@ -67,11 +73,18 @@ la LED est sur GPIO 38 et non 48.
 La carte envoie un battement à la production, à la même adresse que le
 tableau de bord, une fois par minute et dès que le Wi-Fi revient :
 
-    POST /api/box/heartbeat   {"ip": "192.168.1.131", "rssi_dbm": -46, "uptime_s": 3600}
+    POST /api/box/heartbeat
+    {"ip": "192.168.1.131", "rssi_dbm": -46, "uptime_s": 3600,
+     "temperature_c": 23.42, "humidity_pct": 58.1, "firmware": "cc38ad5"}
 
 Le tableau de bord la montre en ligne tant que le dernier battement date de
 moins de trois minutes (`BOX_TIMEOUT` côté serveur). L'adresse vient de la
 carte elle-même : le serveur ne voit que celle du retour de boucle NAT.
+
+La mesure est la dernière lue, à `null` sans capteur : la carte reste en
+ligne, et le serveur n'historise rien. L'humidité est bornée à 100 % : en air
+saturé le SHT peut annoncer un peu plus, et le serveur refuserait tout le
+battement.
 
 | Affichage | Signification |
 |---|---|
@@ -124,8 +137,39 @@ PowerShell :
 
 Ce sont les adresses qu'utilise `pio run -t upload`.
 
-## Déploiement
+## Mise à jour par le Wi-Fi (OTA)
 
-Le firmware ne passe pas par le CI : un commit qui ne touche que ce dossier ne
-reconstruit ni ne redéploie rien (`paths-ignore` dans
-`.github/workflows/deploy.yml`).
+Une fois ce firmware flashé une première fois en USB, les suivants passent
+par le Wi-Fi : plus besoin de sortir la carte de la box. Depuis un PowerShell
+Windows, dans ce dossier :
+
+    powershell -ExecutionPolicy Bypass -File .\ota.ps1
+
+Le script compile dans WSL, lit `OTA_PASSWORD` dans `secrets.h`, demande au
+serveur l'adresse annoncée par la carte (ou `-Address 192.168.1.131`), puis
+envoie le binaire avec `espota.py`, l'outil du framework. Sur la carte :
+
+    mise a jour : reception du firmware
+    mise a jour : 10 %
+    …
+    mise a jour : terminee, redemarrage
+
+La LED reste blanche pendant l'écriture. Le nouveau firmware est écrit dans
+l'emplacement d'application qui ne tourne pas (`app0`/`app1` de
+`default_16MB.csv`) ; une coupure en cours de route laisse l'ancien en place.
+La carte refuse tout envoi sans le mot de passe.
+
+L'envoi part de Windows, pas de WSL : la carte rappelle en TCP le poste qui
+envoie, et WSL2 en réseau NAT n'est pas joignable depuis le LAN. Au premier
+envoi, le pare-feu Windows peut demander d'autoriser Python. Depuis une
+machine Linux ou macOS sur le LAN, l'environnement `esp32s3-ota` fait la même
+chose :
+
+    PEPPERBOX_OTA_PASSWORD=… pio run -e esp32s3-ota -t upload
+
+## CI
+
+`.github/workflows/firmware.yml` compile le firmware à chaque push ou pull
+request qui touche ce dossier, avec les secrets de l'exemple. Le binaire n'est
+pas publié : il porte des secrets factices. Le firmware n'est jamais déployé
+par le CI, et `deploy.yml` ignore les commits qui ne touchent que lui.

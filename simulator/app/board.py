@@ -1,8 +1,9 @@
 """La carte ESP32 simulee et son capteur SHT.
 
-Elle envoie au backend le meme battement que le firmware, par la meme route
-et au meme rythme, et allume sa LED selon les memes regles. Le capteur se
-regle depuis la page du simulateur : temperature, humidite, branchement.
+Elle envoie au backend le meme battement que le firmware, mesures comprises,
+par la meme route et au meme rythme, et allume sa LED selon les memes
+regles. Le capteur se regle depuis la page du simulateur : temperature,
+humidite, branchement.
 """
 import random
 import threading
@@ -14,6 +15,7 @@ import requests
 INTERVAL_SECONDS = 60
 # Adresse annoncee, comme le fait la carte : le backend ne peut pas la deduire.
 BOARD_IP = "192.168.1.131"
+FIRMWARE = "simulateur"
 
 # Memes bornes que firmware/src/main.cpp : a modifier ensemble.
 TEMP_COLD_C = 22.0
@@ -69,11 +71,17 @@ class Board:
             self._wake.clear()
 
     def _beat(self):
-        body = {
-            "ip": BOARD_IP,
-            "rssi_dbm": random.randint(-62, -48),
-            "uptime_s": int(time.monotonic() - self.booted),
-        }
+        with self._lock:
+            connected = self.sensor_connected
+            body = {
+                "ip": BOARD_IP,
+                "rssi_dbm": random.randint(-62, -48),
+                "uptime_s": int(time.monotonic() - self.booted),
+                # Comme le firmware : null tant que le capteur ne repond pas.
+                "temperature_c": self.temperature_c if connected else None,
+                "humidity_pct": self.humidity_pct if connected else None,
+                "firmware": FIRMWARE,
+            }
         try:
             r = requests.post(f"{self._api}/api/box/heartbeat", json=body,
                               timeout=self._timeout)

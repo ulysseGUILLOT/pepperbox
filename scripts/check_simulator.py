@@ -185,7 +185,33 @@ def main():
     check("nouvelle plage de silence : la lampe s'éteint",
           seen[-1][0] is False, f"états : {seen}")
 
+    print("7. Capteur de la box : le battement transporte les mesures")
+    http("POST", f"{SIM}/sensor", {"connected": True, "temperature_c": 31.5, "humidity_pct": 64})
+    # Debrancher puis rebrancher la carte la fait battre aussitot, comme le
+    # firmware au retour du Wi-Fi : pas besoin d'attendre la minute.
+    http("POST", f"{SIM}/board", {"plugged": False})
+    http("POST", f"{SIM}/board", {"plugged": True})
+    time.sleep(2)
+    b = http("GET", f"{API}/box")[1]
+    check("la carte est en ligne et transmet sa mesure",
+          b.get("online") is True and b.get("temperature_c") == 31.5 and b.get("humidity_pct") == 64,
+          f"online={b.get('online')} {b.get('temperature_c')} °C {b.get('humidity_pct')} %HR")
+    led = http("GET", f"{SIM}/state")[1]["board"]["led"]
+    check("au-dessus de 28 °C, sa LED est rouge", led == "hot", f"led={led}")
+    points = http("GET", f"{API}/climate?hours=1")[1]["points"]
+    check("la mesure est historisée", bool(points) and points[-1]["t"] >= time.time() - 120,
+          f"{len(points)} point(s)")
+    http("POST", f"{SIM}/sensor", {"connected": False})
+    http("POST", f"{SIM}/board", {"plugged": False})
+    http("POST", f"{SIM}/board", {"plugged": True})
+    time.sleep(2)
+    b = http("GET", f"{API}/box")[1]
+    check("capteur débranché : la carte bat toujours, sans mesure",
+          b.get("online") is True and b.get("temperature_c") is None,
+          f"online={b.get('online')} temperature_c={b.get('temperature_c')}")
+
     # Retour aux reglages par defaut.
+    http("POST", f"{SIM}/sensor", {"connected": True, "temperature_c": 24, "humidity_pct": 55})
     http("POST", f"{API}/lamp", {"on": False})
     http("PUT", f"{API}/presence", {"enabled": True, "quiet_start": "20:00", "quiet_end": "11:00"})
     http("PUT", f"{API}/schedule", {"enabled": True, "on_time": "11:00", "off_time": "23:00"})

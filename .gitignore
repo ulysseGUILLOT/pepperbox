@@ -9,3 +9,4 @@ __pycache__/
 .DS_Store
 .pio/
 firmware/include/secrets.h
+firmware/include/version.h

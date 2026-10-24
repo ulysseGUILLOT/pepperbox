@@ -30,6 +30,9 @@ export const issuePresenceToken = () =>
 
 export const getBox = (signal) => request('/api/box', { signal })
 
+export const getClimate = (hours, signal) =>
+  request(`/api/climate?hours=${hours}`, { signal })
+
 export const getSettings = (signal) => request('/api/settings', { signal })
 
 export const saveSettings = (changes) =>

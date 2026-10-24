@@ -24,3 +24,11 @@ class Config:
     # Carte ESP32 de la box : un battement par minute, hors ligne apres
     # trois manques.
     BOX_TIMEOUT = float(os.getenv("BOX_TIMEOUT", "180"))
+
+    # Plage de temperature de la box, celle du guide de culture lampe
+    # allumee. Les memes bornes allument la LED de la carte
+    # (firmware/src/main.cpp) : a modifier ensemble.
+    CLIMATE_COLD_C = float(os.getenv("CLIMATE_COLD_C", "22"))
+    CLIMATE_HOT_C = float(os.getenv("CLIMATE_HOT_C", "28"))
+    # Une mesure par minute : un an tient en une vingtaine de Mo.
+    CLIMATE_RETENTION_DAYS = int(os.getenv("CLIMATE_RETENTION_DAYS", "365"))

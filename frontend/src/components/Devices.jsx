@@ -1,9 +1,3 @@
-import { useEffect, useState } from 'react'
-import { getBox } from '../api.js'
-
-// La carte bat une fois par minute : inutile de la suivre a 2 s comme la lampe.
-const BOX_POLL_MS = 5000
-
 function ago(seconds) {
   if (seconds < 60) return `il y a ${seconds} s`
   if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`
@@ -66,31 +60,7 @@ function Plug({ status, error, loading }) {
   )
 }
 
-// Interrogee ici et non dans App : /api/lamp echoue quand la prise ne
-// repond pas, la carte doit rester visible dans ce cas.
-function Board() {
-  const [state, setState] = useState(null)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const refresh = () =>
-      getBox(controller.signal)
-        .then((next) => {
-          setState(next)
-          setError(null)
-        })
-        .catch((err) => {
-          if (err.name !== 'AbortError') setError(err.message)
-        })
-    refresh()
-    const id = setInterval(refresh, BOX_POLL_MS)
-    return () => {
-      controller.abort()
-      clearInterval(id)
-    }
-  }, [])
-
+function Board({ state, error }) {
   const seen = state?.seen_seconds_ago != null
   const label = error
     ? 'État inconnu'
@@ -117,6 +87,7 @@ function Board() {
           </Row>
           <Row label="Adresse">{state.ip}</Row>
           <Row label="En marche depuis">{uptime(state.uptime_s)}</Row>
+          <Row label="Firmware">{state.firmware ?? '—'}</Row>
         </div>
       )}
       {state && !state.online && (
@@ -129,7 +100,9 @@ function Board() {
   )
 }
 
-export default function Devices({ status, error, loading }) {
+// L'etat de la carte est interroge par le tableau de bord, qui le partage
+// avec le panneau du climat.
+export default function Devices({ status, error, loading, box, boxError }) {
   return (
     <section className="panel program program--wide" aria-labelledby="devices-title">
       <h2 id="devices-title" className="program__title">
@@ -137,7 +110,7 @@ export default function Devices({ status, error, loading }) {
       </h2>
       <div className="devices">
         <Plug status={status} error={error} loading={loading} />
-        <Board />
+        <Board state={box} error={boxError} />
       </div>
     </section>
   )

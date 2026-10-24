@@ -32,7 +32,7 @@ export default function Telemetry({ status }) {
     <section className="telemetry" aria-label="Mesures de la prise">
       <Reading label="Tension" value={show('voltage_v', 1)} unit="V" />
       <Reading label="Courant" value={show('current_a', 3)} unit="A" />
-      <Reading label="Température" value={show('temperature_c', 1)} unit="°C" />
+      <Reading label="Température de la prise" value={show('temperature_c', 1)} unit="°C" />
       <Reading label="Énergie cumulée" value={energy} unit="kWh" />
       <Reading label="Coût estimé" value={cost} unit="€" />
       {status && (
