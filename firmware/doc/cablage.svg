@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="930" viewBox="0 0 960 930" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Câblage du capteur SHT sur l'ESP32-S3 DevKitC-1</title>
+<style>.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.halo{paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round}</style>
+<rect width="960" height="930" rx="16" fill="#ffffff"/>
+<text x="40" y="52" font-size="22" font-weight="700" fill="#24292f">Câblage du capteur SHT sur l'ESP32-S3</text>
+<text x="40" y="78" font-size="14" fill="#57606a">Carte DevKitC-1, module N16R8 — vue de dessus, antenne en haut</text>
+<circle cx="48" cy="118" r="6" fill="#0969da" stroke="#57606a"/>
+<text x="62" y="123" font-size="13" fill="#24292f">broche reliée au capteur</text>
+<circle cx="48" cy="146" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="62" y="151" font-size="13" fill="#57606a"><tspan x="62">à éviter pour un autre branchement :</tspan><tspan x="62" dy="18">PSRAM (35-37), démarrage (0, 3, 45, 46),</tspan><tspan x="62" dy="18">USB natif (19, 20), console série (TX, RX)</tspan></text>
+<rect x="500" y="110" width="380" height="600" rx="14" fill="#f6f8fa" stroke="#57606a" stroke-width="1.5"/>
+<rect x="600" y="124" width="180" height="190" rx="4" fill="#d0d7de" stroke="#8c959f"/>
+<rect x="600" y="124" width="180" height="40" rx="4" fill="#eaeef2" stroke="#8c959f"/>
+<path d="M616 152 v-16 h18 v16 h18 v-16 h18 v16 h18 v-16 h18 v16 h18 v-16 h18 v16 h18" fill="none" stroke="#8c959f" stroke-width="2"/>
+<text x="690" y="236" font-size="16" font-weight="700" fill="#24292f" text-anchor="middle">ESP32-S3</text>
+<text x="690" y="258" font-size="13" fill="#57606a" text-anchor="middle">WROOM-1 N16R8</text>
+<text x="690" y="278" font-size="12" fill="#57606a" text-anchor="middle">16 Mo flash · 8 Mo PSRAM</text>
+<text x="520" y="140" font-size="11" fill="#57606a" text-anchor="middle">J1</text>
+<text x="860" y="140" font-size="11" fill="#57606a" text-anchor="middle">J3</text>
+<rect x="508" y="148" width="24" height="528" rx="4" fill="#e1e4e8"/>
+<rect x="848" y="148" width="24" height="528" rx="4" fill="#e1e4e8"/>
+<rect x="615" y="698" width="44" height="24" rx="7" fill="#8c959f" stroke="#57606a"/>
+<rect x="721" y="698" width="44" height="24" rx="7" fill="#8c959f" stroke="#57606a"/>
+<text x="690" y="752" font-size="13" fill="#24292f" text-anchor="middle">2 × USB-C : brancher celui marqué COM ou UART</text>
+<text x="690" y="771" font-size="12" fill="#57606a" text-anchor="middle">pont CH343, COM3 sous Windows</text>
+<text x="90" y="306" font-size="15" font-weight="700" fill="#24292f">Carte capteur SHT</text>
+<rect x="90" y="320" width="170" height="160" rx="10" fill="#eef6ff" stroke="#57606a" stroke-width="1.5"/>
+<rect x="124" y="383" width="44" height="44" rx="4" fill="#57606a"/>
+<text x="146" y="410" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">SHT</text>
+<rect x="232" y="346" width="24" height="118" rx="4" fill="#d8e6f5"/>
+<path d="M244 360 H440 V160 H520" fill="none" stroke="#cf222e" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="470.0" y="152" font-size="12" font-weight="600" fill="#cf222e" text-anchor="middle" class="halo">3,3 V</text>
+<path d="M244 390 H400 V424 H520" fill="none" stroke="#0969da" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="450.0" y="416" font-size="12" font-weight="600" fill="#0969da" text-anchor="middle" class="halo">SDA</text>
+<path d="M244 420 H360 V496 H520" fill="none" stroke="#bf8700" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="430.0" y="488" font-size="12" font-weight="600" fill="#bf8700" text-anchor="middle" class="halo">SCL</text>
+<path d="M244 450 H320 V664 H520" fill="none" stroke="#24292f" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="410.0" y="656" font-size="12" font-weight="600" fill="#24292f" text-anchor="middle" class="halo">GND</text>
+<circle cx="244" cy="360" r="6" fill="#cf222e" stroke="#57606a"/>
+<text x="226" y="364" font-size="12.5" font-weight="700" fill="#24292f" text-anchor="end" class="mono">VIN</text>
+<circle cx="244" cy="390" r="6" fill="#0969da" stroke="#57606a"/>
+<text x="226" y="394" font-size="12.5" font-weight="700" fill="#24292f" text-anchor="end" class="mono">SDA</text>
+<circle cx="244" cy="420" r="6" fill="#bf8700" stroke="#57606a"/>
+<text x="226" y="424" font-size="12.5" font-weight="700" fill="#24292f" text-anchor="end" class="mono">SCL</text>
+<circle cx="244" cy="450" r="6" fill="#24292f" stroke="#57606a"/>
+<text x="226" y="454" font-size="12.5" font-weight="700" fill="#24292f" text-anchor="end" class="mono">GND</text>
+<circle cx="520" cy="160" r="6" fill="#cf222e" stroke="#57606a"/>
+<text x="540" y="164" font-size="12.5" font-weight="700" fill="#cf222e" class="mono">3V3</text>
+<circle cx="520" cy="184" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="188" font-size="12.5" font-weight="400" fill="#24292f" class="mono">3V3</text>
+<circle cx="520" cy="208" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="212" font-size="12.5" font-weight="400" fill="#24292f" class="mono">RST</text>
+<circle cx="520" cy="232" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="236" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO4</text>
+<circle cx="520" cy="256" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="260" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO5</text>
+<circle cx="520" cy="280" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="284" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO6</text>
+<circle cx="520" cy="304" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="308" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO7</text>
+<circle cx="520" cy="328" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="332" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO15</text>
+<circle cx="520" cy="352" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="356" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO16</text>
+<circle cx="520" cy="376" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="380" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO17</text>
+<circle cx="520" cy="400" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="404" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO18</text>
+<circle cx="520" cy="424" r="6" fill="#0969da" stroke="#57606a"/>
+<text x="540" y="428" font-size="12.5" font-weight="700" fill="#0969da" class="mono">GPIO8</text>
+<circle cx="520" cy="448" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="540" y="452" font-size="12.5" font-weight="400" fill="#8c959f" class="mono">GPIO3</text>
+<circle cx="520" cy="472" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="540" y="476" font-size="12.5" font-weight="400" fill="#8c959f" class="mono">GPIO46</text>
+<circle cx="520" cy="496" r="6" fill="#bf8700" stroke="#57606a"/>
+<text x="540" y="500" font-size="12.5" font-weight="700" fill="#bf8700" class="mono">GPIO9</text>
+<circle cx="520" cy="520" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="524" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO10</text>
+<circle cx="520" cy="544" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="548" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO11</text>
+<circle cx="520" cy="568" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="572" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO12</text>
+<circle cx="520" cy="592" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="596" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO13</text>
+<circle cx="520" cy="616" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="620" font-size="12.5" font-weight="400" fill="#24292f" class="mono">GPIO14</text>
+<circle cx="520" cy="640" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="540" y="644" font-size="12.5" font-weight="400" fill="#24292f" class="mono">5V</text>
+<circle cx="520" cy="664" r="6" fill="#24292f" stroke="#57606a"/>
+<text x="540" y="668" font-size="12.5" font-weight="700" fill="#24292f" class="mono">GND</text>
+<circle cx="860" cy="160" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="164" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GND</text>
+<circle cx="860" cy="184" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="188" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">TX 43</text>
+<circle cx="860" cy="208" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="212" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">RX 44</text>
+<circle cx="860" cy="232" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="236" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO1</text>
+<circle cx="860" cy="256" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="260" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO2</text>
+<circle cx="860" cy="280" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="284" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO42</text>
+<circle cx="860" cy="304" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="308" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO41</text>
+<circle cx="860" cy="328" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="332" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO40</text>
+<circle cx="860" cy="352" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="356" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO39</text>
+<circle cx="860" cy="376" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="380" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO38</text>
+<circle cx="860" cy="400" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="404" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO37</text>
+<circle cx="860" cy="424" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="428" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO36</text>
+<circle cx="860" cy="448" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="452" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO35</text>
+<circle cx="860" cy="472" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="476" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO0</text>
+<circle cx="860" cy="496" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="500" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO45</text>
+<circle cx="860" cy="520" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="524" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO48</text>
+<circle cx="860" cy="544" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="548" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO47</text>
+<circle cx="860" cy="568" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="572" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GPIO21</text>
+<circle cx="860" cy="592" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="596" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO20</text>
+<circle cx="860" cy="616" r="6" fill="#ffffff" stroke="#8c959f"/>
+<text x="840" y="620" font-size="12.5" font-weight="400" fill="#8c959f" text-anchor="end" class="mono">GPIO19</text>
+<circle cx="860" cy="640" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="644" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GND</text>
+<circle cx="860" cy="664" r="6" fill="#ffffff" stroke="#57606a"/>
+<text x="840" y="668" font-size="12.5" font-weight="400" fill="#24292f" text-anchor="end" class="mono">GND</text>
+<line x1="40" y1="800" x2="920" y2="800" stroke="#d0d7de"/>
+<text x="40" y="832" font-size="13" fill="#24292f"><tspan font-weight="700">3,3 V uniquement.</tspan> Les broches de l'ESP32-S3 ne tolèrent pas
+<tspan x="40" dy="19">le 5 V : sur une carte capteur sans régulateur, il remonterait</tspan>
+<tspan x="40" dy="19">sur SDA et SCL par les résistances de rappel.</tspan>
+</text>
+<text x="500" y="832" font-size="13" fill="#24292f"><tspan font-weight="700">Résistances de rappel.</tspan> Présentes sur presque toutes les cartes
+<tspan x="500" dy="19">capteur. Capteur nu : 4,7 kΩ de SDA vers 3V3, et de SCL vers 3V3.</tspan>
+</text>
+<text x="40" y="906" font-size="12" fill="#57606a">Brochage du DevKitC-1 v1.1 d'Espressif. L'ordre des broches du capteur varie selon les cartes : suivre les noms sérigraphiés (VIN ou VCC), pas la position.</text>
+</svg>

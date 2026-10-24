@@ -14,6 +14,7 @@ la présence pour ne pas éclairer l'appartement le soir quand on y est.
 | `backend/` | API Flask, superviseur de présence, réglages SQLite |
 | `frontend/` | Tableau de bord React (Vite), servi par nginx |
 | `simulator/` | Box virtuelle : fausse prise, lampe, téléphone simulé |
+| `firmware/` | ESP32-S3 et capteur SHT : température et humidité de la box |
 | `scripts/` | Vérification des scénarios contre le simulateur |
 | `deploy/` | Script de déploiement et vhosts Apache de la production |
 
@@ -69,7 +70,8 @@ Vérification des scénarios, environ six minutes en temps réel :
 
 ## Déploiement
 
-Chaque push sur `main` déclenche `.github/workflows/deploy.yml` :
+Chaque push sur `main` déclenche `.github/workflows/deploy.yml`, sauf s'il ne
+touche que `firmware/` :
 
 1. **build** — les deux images sont construites pour `linux/arm64` et poussées
    sur `ghcr.io/ulysseguillot/pepperbox-{api,web}`. Rien n'est compilé sur la
