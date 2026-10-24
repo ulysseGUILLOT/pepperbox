@@ -497,14 +497,47 @@ button {
   box-shadow: 0 0 8px rgba(255, 35, 64, 0.9);
 }
 
-/* ---- Capteur de la box ---- */
+/* ---- Peripheriques : la prise et la carte, cote a cote ---- */
 
-.box__details {
+.devices {
+  display: grid;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+@media (min-width: 640px) {
+  .devices {
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  /* Un filet entre les deux, plutot que deux cartes dans la carte. */
+  .device + .device {
+    padding-left: 24px;
+    border-left: 1px solid var(--line);
+  }
+
+  .device:first-child {
+    padding-right: 24px;
+  }
+}
+
+.device__name {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.device .presence__state {
+  padding-top: 6px;
+}
+
+.device__details {
   margin-top: 8px;
   border-top: 1px solid var(--line);
 }
 
-.box__row {
+.device__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -513,18 +546,18 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
-.box__row:last-child {
+.device__row:last-child {
   border-bottom: 0;
 }
 
-.box__value {
+.device__value {
   font-family: var(--mono);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.box__hint {
+.device__hint {
   margin-left: 0.6em;
   font-family: var(--sans);
   font-size: 0.75rem;

@@ -4,7 +4,7 @@ import time
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from .board import Board
+from .board import Board, InvalidSensor
 from .phone import Phone
 from .rpc import make_blueprint
 from .world import TZ, World
@@ -58,8 +58,23 @@ def create_app():
     def board_plug():
         payload = request.get_json(silent=True) or {}
         board.plug(bool(payload.get("plugged")))
-        world.log("capteur", "Capteur rebranché" if board.plugged
-                  else "Capteur débranché")
+        world.log("carte", "Carte ESP32 rebranchée" if board.plugged
+                  else "Carte ESP32 débranchée")
+        return jsonify(board.snapshot())
+
+    @app.post("/sim/sensor")
+    def sensor():
+        payload = request.get_json(silent=True)
+        was_connected = board.sensor_connected
+        try:
+            board.set_sensor(payload)
+        except InvalidSensor as exc:
+            return jsonify({"error": str(exc)}), 400
+        # Les curseurs ne sont pas journalises : un glissement en enverrait
+        # des dizaines.
+        if board.sensor_connected != was_connected:
+            world.log("capteur", "Capteur SHT rebranché" if board.sensor_connected
+                      else "Capteur SHT débranché")
         return jsonify(board.snapshot())
 
     @app.post("/sim/presence")

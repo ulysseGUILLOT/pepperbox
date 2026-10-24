@@ -23,7 +23,8 @@
 
   <main class="bench">
     <section class="stage" aria-label="La box virtuelle">
-      <svg id="box" class="box" data-on="false" viewBox="0 0 400 440" role="img"
+      <svg id="box" class="box" data-on="false" data-offline="false" data-board="true"
+           data-sensor="true" data-led="off" viewBox="0 0 520 440" role="img"
            aria-labelledby="box-title">
         <title id="box-title">Box de culture : lampe éteinte</title>
         <defs>
@@ -36,6 +37,18 @@
             <path d="M16 9.6C15.8 7.6 15.9 6 16 4" stroke="#3f7d4a" stroke-width="2" stroke-linecap="round" fill="none" />
           </symbol>
         </defs>
+
+        <!-- La prise Shelly, au mur hors de la box ; le cable de la lampe
+             sort par le haut de la tente. -->
+        <path class="cable" d="M200 20 V8 H452 V272" fill="none" />
+        <g class="plug">
+          <rect class="plug__wall" x="414" y="256" width="76" height="88" rx="8" />
+          <circle class="plug__body" cx="452" cy="300" r="27" />
+          <circle class="plug__ring" cx="452" cy="300" r="18" />
+          <circle class="plug__button" cx="452" cy="300" r="7" />
+          <text class="plug__label" x="452" y="364">Shelly Plug M</text>
+          <text class="plug__offline" x="452" y="380">hors réseau</text>
+        </g>
 
         <rect class="tent" x="20" y="20" width="360" height="400" rx="14" />
         <line class="cable" x1="200" y1="20" x2="200" y2="44" />
@@ -59,6 +72,31 @@
           <use href="#pepper" x="178" y="296" width="30" height="30" />
         </g>
 
+        <!-- Carte ESP32 sur la paroi, capteur SHT a hauteur du feuillage. -->
+        <g class="esp">
+          <path class="esp__usb" d="M60 230 V412" fill="none" />
+          <g class="esp__board">
+            <rect class="esp__pcb" x="36" y="150" width="48" height="78" rx="3" />
+            <rect class="esp__shield" x="42" y="157" width="36" height="30" rx="2" />
+            <text class="esp__name" x="60" y="175">ESP32-S3</text>
+            <rect class="esp__port" x="54" y="224" width="12" height="6" rx="1" />
+            <circle class="esp__led" cx="72" cy="208" r="4.5" />
+          </g>
+          <text class="esp__label" x="60" y="142">carte</text>
+        </g>
+
+        <g class="sht">
+          <g class="sht__wires" fill="none">
+            <path d="M84 198 C92 198 90 252 98 252" stroke="#e0182f" />
+            <path d="M84 202 C94 202 92 256 98 256" stroke="#8b939c" />
+            <path d="M84 206 C96 206 94 260 98 260" stroke="#e8c33a" />
+            <path d="M84 210 C98 210 96 264 98 264" stroke="#4c9459" />
+          </g>
+          <rect class="sht__pcb" x="98" y="248" width="22" height="20" rx="2" />
+          <rect class="sht__chip" x="104" y="254" width="9" height="8" rx="1" />
+          <text class="esp__label" x="109" y="284">SHT</text>
+        </g>
+
         <g class="fixture">
           <rect class="fixture__body" x="90" y="44" width="220" height="22" rx="6" />
           <g class="fixture__leds">
@@ -79,6 +117,10 @@
       <p class="stage__caption">
         <span id="lamp-state">Lampe éteinte</span>
         <span class="stage__figures" id="lamp-figures">0 W</span>
+      </p>
+      <p class="stage__caption stage__caption--sub">
+        <span id="led-state">LED éteinte</span>
+        <span class="stage__figures" id="climate-figures">—</span>
       </p>
     </section>
 
@@ -107,13 +149,39 @@
       </section>
 
       <section class="card">
-        <h2>Capteur de la box</h2>
-        <p class="hint">Envoie au serveur, chaque minute, le battement de la carte ESP32.</p>
+        <h2>Carte ESP32 et capteur SHT</h2>
+        <p class="hint">La carte envoie son battement au serveur chaque minute et
+          allume sa LED selon la température, comme le firmware.</p>
+
+        <div class="slider" id="slider-temp">
+          <div class="slider__head">
+            <label for="rng-temp">Température</label>
+            <output id="out-temp" for="rng-temp">—</output>
+          </div>
+          <input type="range" id="rng-temp" min="5" max="45" step="0.5" />
+          <div class="slider__bands" aria-hidden="true">
+            <span class="slider__mark" id="mark-cold"></span>
+            <span class="slider__mark" id="mark-hot"></span>
+          </div>
+        </div>
+
+        <div class="slider">
+          <div class="slider__head">
+            <label for="rng-humidity">Humidité</label>
+            <output id="out-humidity" for="rng-humidity">—</output>
+          </div>
+          <input type="range" id="rng-humidity" min="0" max="100" step="1" />
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="chk-sensor" />
+          Débrancher le capteur SHT
+        </label>
         <label class="check">
           <input type="checkbox" id="chk-board" />
-          Débrancher le capteur
+          Débrancher la carte ESP32
         </label>
-        <p class="hint" id="board-result">Aucun battement envoyé.</p>
+        <p class="hint hint--below" id="board-result">Aucun battement envoyé.</p>
       </section>
 
       <section class="card">

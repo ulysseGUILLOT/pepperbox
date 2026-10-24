@@ -57,8 +57,11 @@ qu'en production, sans savoir qu'il parle à un faux. Depuis sa page on peut :
 - appuyer sur le bouton physique de la prise ;
 - couper la prise du réseau ;
 - déclarer « j'arrive » ou « je pars », comme le ferait le raccourci iOS ;
-- débrancher le capteur de la box, dont la carte ESP32 envoie sinon son
-  battement chaque minute ;
+- voir la prise au mur, son anneau allumé avec la lampe ;
+- régler la température et l'humidité du capteur SHT, et voir la LED de la
+  carte ESP32 changer de couleur selon les bornes du firmware ;
+- débrancher le capteur, ou la carte, qui envoie sinon son battement
+  chaque minute ;
 - lire les programmes posés sur la prise et le journal des événements.
 
 Les programmes sont réellement exécutés, à l'heure locale. Trois comportements

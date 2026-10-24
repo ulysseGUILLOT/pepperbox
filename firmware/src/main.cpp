@@ -25,6 +25,8 @@ constexpr unsigned long READ_INTERVAL_MS = 5000;
 // (frontend/src/views/Guide.jsx), lampe allumee. Une seule plage, jour et
 // nuit, sans dependre du serveur ni de l'etat de la lampe : la nuit, la LED
 // passera au bleu des que la box descend sous 22 °C.
+// Reprises par la carte du simulateur (simulator/app/board.py) : a modifier
+// ensemble.
 constexpr float TEMP_COLD_C = 22.0;
 constexpr float TEMP_HOT_C = 28.0;
 // Une temperature qui oscille autour d'une borne ne fait pas clignoter la LED :
