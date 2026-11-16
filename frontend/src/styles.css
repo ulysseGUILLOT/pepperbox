@@ -557,20 +557,17 @@ button {
 }
 
 /* Graphique ECharts : temperature, humidite et barre de navigation
-   partagent ce canevas, d'ou sa hauteur. */
+   partagent ce canevas. Large, les deux graphiques sont cote a cote ;
+   etroit (moins de WIDE_PX dans Climate.jsx), empiles, d'ou la hauteur. */
 .climate__chart {
-  height: 380px;
-  margin-top: 8px;
+  height: 340px;
+  margin-top: 12px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .climate__chart {
-    height: 340px;
+    height: 500px;
   }
-}
-
-.climate__help {
-  margin-top: 4px;
 }
 
 /* ---- Peripheriques : la prise et la carte, cote a cote ---- */

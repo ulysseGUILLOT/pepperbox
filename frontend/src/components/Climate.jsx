@@ -7,6 +7,7 @@ import {
   DataZoomComponent,
   GridComponent,
   MarkAreaComponent,
+  TitleComponent,
   TooltipComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -20,6 +21,7 @@ echarts.use([
   GridComponent,
   LineChart,
   MarkAreaComponent,
+  TitleComponent,
   TooltipComponent,
   CanvasRenderer,
 ])
@@ -70,6 +72,9 @@ const DETAIL_POLL_MS = 60000
 const ZOOM_DEBOUNCE_MS = 250
 // En deca, on ne voit plus qu'une poignee de mesures a la minute.
 const MIN_SPAN = HOUR
+// Au-dela de cette largeur, temperature et humidite cote a cote ; en deca,
+// l'une sous l'autre. Accorde avec la hauteur de .climate__chart.
+const WIDE_PX = 640
 
 // Couleurs des jetons de styles.css : le canevas ne lit pas les variables CSS.
 const C = {
@@ -187,9 +192,41 @@ function line(label, p, key, unit, digits) {
   return `<div>${label} <b style="font-family:${MONO}">${avg.toFixed(digits)} ${unit}</b>${range}</div>`
 }
 
-function baseOption() {
+// Emplacement des deux graphiques dans le canevas. Large : cote a cote, la
+// temperature en grand a gauche. Etroit : l'un sous l'autre, chacun avec son
+// titre. La barre de navigation court toujours sur toute la largeur, en bas.
+function layout(wide, width) {
+  const left = 40
+  const right = 12
+  const titles = (a, b) => [
+    { text: 'Température (°C)', left: a.left - 32, top: a.top },
+    { text: 'Humidité (%)', left: b.left - 32, top: b.top },
+  ]
+  if (wide) {
+    // L'ecart accueille les graduations de l'humidite, a gauche de son axe.
+    const gap = 72
+    const inner = width - left - right - gap
+    const temperature = { left, top: 34, bottom: 82, width: Math.round(inner * 0.62) }
+    const humidity = { left: left + temperature.width + gap, top: 34, bottom: 82, right }
+    return {
+      grids: [temperature, humidity],
+      titles: titles({ ...temperature, top: 4 }, { ...humidity, top: 4 }),
+      timeLabels: [true, true],
+    }
+  }
+  const temperature = { left, right, top: 34, height: '40%' }
+  const humidity = { left, right, top: '66%', height: '18%' }
+  return {
+    grids: [temperature, humidity],
+    titles: titles({ ...temperature, top: 4 }, { ...humidity, top: '59%' }),
+    timeLabels: [false, true],
+  }
+}
+
+function baseOption(wide, width) {
   const axisLabel = { color: C.muted, fontFamily: MONO, fontSize: 10, hideOverlap: true }
   const splitLine = { lineStyle: { color: C.line } }
+  const place = layout(wide, width)
   return {
     backgroundColor: 'transparent',
     animation: false,
@@ -208,10 +245,11 @@ function baseOption() {
       textStyle: { color: C.text, fontSize: 12 },
       extraCssText: 'box-shadow: none; border-radius: 7px;',
     },
-    grid: [
-      { left: 46, right: 14, top: 26, height: '44%' },
-      { left: 46, right: 14, top: '60%', height: '22%' },
-    ],
+    title: place.titles.map((t) => ({
+      ...t,
+      textStyle: { color: C.muted, fontSize: 13, fontWeight: 500, fontFamily: SANS },
+    })),
+    grid: place.grids,
     xAxis: [0, 1].map((i) => ({
       type: 'time',
       gridIndex: i,
@@ -219,7 +257,7 @@ function baseOption() {
       axisTick: { show: false },
       axisLabel: {
         ...axisLabel,
-        show: i === 1,
+        show: place.timeLabels[i],
         // Chaque niveau du calendrier a son format : l'annee en janvier,
         // le mois au premier, le jour a minuit, l'heure sinon.
         formatter: {
@@ -233,11 +271,11 @@ function baseOption() {
         },
       },
       splitLine: { show: false },
-      // Une seule etiquette de date sous le reticule, en bas : celle de
-      // l'axe du haut tomberait sur le graphique de l'humidite.
+      // Empiles, une seule etiquette de date sous le reticule, en bas : celle
+      // de l'axe du haut tomberait sur le graphique de l'humidite.
       axisPointer: {
         label: {
-          show: i === 1,
+          show: place.timeLabels[i],
           formatter: ({ value }) =>
             new Date(value).toLocaleString('fr-FR', {
               day: 'numeric',
@@ -249,14 +287,14 @@ function baseOption() {
         },
       },
     })),
-    // Echelles recalculees sur la seule partie visible (filterMode
-    // 'weakFilter' du zoom) : en zoomant, un dixieme de degre se voit.
-    yAxis: ['°C', '%'].map((name, i) => ({
-      name,
+    // Humidite : echelle recalculee sur la seule partie visible (filterMode
+    // 'weakFilter' du zoom). Temperature : bornes posees par tempScale().
+    // L'unite est dans le titre de chaque graphique.
+    yAxis: ['temperature', 'humidity'].map((id, i) => ({
+      id,
       type: 'value',
       scale: true,
       gridIndex: i,
-      nameTextStyle: { color: C.muted, fontSize: 10, align: 'right' },
       axisLabel,
       splitLine,
       splitNumber: i === 0 ? 4 : 2,
@@ -294,9 +332,32 @@ function baseOption() {
         labelFormatter: (ms) =>
           new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
         brushSelect: false,
+        left: 40,
+        right: 12,
       },
     ],
   }
+}
+
+// Echelle de temperature : toujours toute la plage visee, un degre de marge
+// de chaque cote ; elargie seulement si la partie visible en sort, enveloppe
+// minimum-maximum comprise. Bornes et pas arrondis ensemble, pour que les
+// graduations tombent juste : sinon ECharts ajoute les bornes brutes et les
+// etiquettes se chevauchent.
+function tempScale(points, start, end, cold, hot) {
+  let lo = cold - 1
+  let hi = hot + 1
+  for (const p of points) {
+    if (p.gap || p.t < start - p.bucket || p.t > end) continue
+    for (const v of [p.temperature_c, p.temperature_min, p.temperature_max]) {
+      if (v == null) continue
+      lo = Math.min(lo, v)
+      hi = Math.max(hi, v)
+    }
+  }
+  // Huit intervalles au plus : de 21 a 29 °C, une graduation par degre.
+  const step = [0.5, 1, 2, 5, 10].find((s) => (Math.ceil(hi / s) - Math.floor(lo / s)) <= 8) ?? 20
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, interval: step }
 }
 
 function Chart({ overview, onWindow, range, request }) {
@@ -305,22 +366,38 @@ function Chart({ overview, onWindow, range, request }) {
   const points = useRef([])
   const view = useRef(null)
   const [detail, setDetail] = useState(null)
+  // Largeur du canevas : decide de la disposition, cote a cote ou empilee.
+  const [width, setWidth] = useState(0)
+  const wide = width >= WIDE_PX
+
+  // Pose l'echelle de temperature de la fenetre [start, end].
+  const scaleTemperature = (start, end) => {
+    chart.current.setOption({
+      yAxis: [{ id: 'temperature', ...tempScale(points.current, start, end, overview.cold_c, overview.hot_c) }],
+    })
+  }
 
   const extent = () => {
     const first = overview.points[0]?.t ?? Date.now() / 1000 - DAY
     return [first, Date.now() / 1000]
   }
 
-  // Fenetre affichee, en secondes, deduite des pourcentages du zoom.
+  // Fenetre affichee, en secondes, deduite des pourcentages du zoom. Avant
+  // le premier dessin, qui attend la largeur du canevas : la fenetre par
+  // defaut.
   const readWindow = () => {
-    const zoom = chart.current.getOption().dataZoom[0]
     const [min, max] = extent()
+    const zoom = chart.current.getOption()?.dataZoom?.[0]
+    if (!zoom) return [max - range, max]
     return [min + ((max - min) * zoom.start) / 100, min + ((max - min) * zoom.end) / 100]
   }
 
   useEffect(() => {
     chart.current = echarts.init(el.current, null, { locale: 'FR' })
-    const observer = new ResizeObserver(() => chart.current.resize())
+    const observer = new ResizeObserver(([entry]) => {
+      chart.current.resize()
+      setWidth(Math.round(entry.contentRect.width))
+    })
     observer.observe(el.current)
     return () => {
       observer.disconnect()
@@ -349,6 +426,7 @@ function Chart({ overview, onWindow, range, request }) {
     const onZoom = () => {
       view.current = readWindow()
       onWindow(view.current)
+      scaleTemperature(...view.current)
       clearTimeout(timer)
       timer = setTimeout(load, ZOOM_DEBOUNCE_MS)
     }
@@ -378,12 +456,14 @@ function Chart({ overview, onWindow, range, request }) {
     })
   }, [request])
 
-  // Redessine : apercu et detail assembles, fenetre conservee.
+  // Redessine : apercu et detail assembles, fenetre conservee, disposition
+  // selon la largeur.
   useEffect(() => {
+    if (!width) return
     const [min, max] = extent()
     const detailUsable = detail && detail.to > min
     points.current = compose(overview, detailUsable ? detail : null)
-    const option = baseOption()
+    const option = baseOption(wide, width)
     option.xAxis.forEach((x) => Object.assign(x, { min: min * 1000, max: max * 1000 }))
     option.tooltip.formatter = (params) => {
       const p = points.current[params[0]?.dataIndex]
@@ -415,8 +495,9 @@ function Chart({ overview, onWindow, range, request }) {
     option.dataZoom.forEach((z) =>
       Object.assign(z, { startValue: s * 1000, endValue: e * 1000 }),
     )
+    Object.assign(option.yAxis[0], tempScale(points.current, s, e, overview.cold_c, overview.hot_c))
     chart.current.setOption(option, { notMerge: true })
-  }, [overview, detail])
+  }, [overview, detail, width])
 
   return <div className="climate__chart" ref={el} />
 }
@@ -520,15 +601,7 @@ export default function Climate({ box }) {
           carte, ou la carte est éteinte.
         </p>
       ) : (
-        <>
-          <Chart overview={overview} range={DAY} request={pending} onWindow={setView} />
-          <p className="program__hint climate__help">
-            Molette ou pincement pour zoomer, glisser pour se déplacer, ou la barre
-            du bas pour choisir la période. La bande grise autour de la courbe va du minimum au
-            maximum de chaque point ; la zone claire est la plage visée,{' '}
-            {overview.cold_c} à {overview.hot_c} °C.
-          </p>
-        </>
+        <Chart overview={overview} range={DAY} request={pending} onWindow={setView} />
       )}
     </section>
   )
