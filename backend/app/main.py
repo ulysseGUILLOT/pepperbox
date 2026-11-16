@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 
 from flask import Flask, jsonify, request
@@ -159,11 +160,15 @@ def create_app():
             climate.record(time.time(), beat["temperature_c"], beat["humidity_pct"])
         return jsonify(box.snapshot())
 
-    # Une trentaine de jours au plus : au-dela, la courbe n'apprend plus rien
-    # et la requete parcourt toute la table.
-    CLIMATE_MAX_HOURS = 24 * 31
-    # Points renvoyes, quelle que soit la duree : assez pour une courbe nette.
+    # Un an au plus : c'est la duree de conservation (CLIMATE_RETENTION_DAYS),
+    # au-dela la requete ne trouverait rien de plus.
+    CLIMATE_MAX_HOURS = 24 * 366
+    # Points vises, quelle que soit la duree : assez pour une courbe nette.
     CLIMATE_POINTS = 288
+    # Tranches qui divisent la journee. Une tranche de 30 h, celle qu'aurait
+    # un an en 288 points, melangerait jour et nuit dans des proportions
+    # changeantes d'un point a l'autre : la courbe zigzaguerait sans raison.
+    CLIMATE_BUCKETS = (60, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400)
 
     @app.get("/api/climate")
     def get_climate():
@@ -174,8 +179,11 @@ def create_app():
                 "error": "requete_invalide",
                 "message": f"'hours' doit etre un entier entre 1 et {CLIMATE_MAX_HOURS}.",
             }), 400
-        # Une minute au moins : c'est le rythme des battements.
-        bucket = max(60, hours * 3600 // CLIMATE_POINTS)
+        # La tranche la plus proche de celle qui donnerait CLIMATE_POINTS
+        # points : 5 min sur 24 h, 30 min sur 7 j, 3 h sur 30 j, 1 jour sur
+        # un an. Jamais moins d'une minute, le rythme des battements.
+        target = hours * 3600 / CLIMATE_POINTS
+        bucket = min(CLIMATE_BUCKETS, key=lambda b: abs(math.log(b / target)))
         return jsonify({
             "hours": hours,
             "bucket_s": bucket,

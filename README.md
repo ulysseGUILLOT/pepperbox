@@ -129,7 +129,7 @@ l'adresse `192.168.1.254`.
 | POST | `/api/presence/event` | `{"state": "home"\|"away", "at": ISO 8601}` |
 | GET | `/api/box` | Carte ESP32 : en ligne, dernier battement, IP, signal, dernière mesure, firmware |
 | POST | `/api/box/heartbeat` | `{"ip", "rssi_dbm", "uptime_s", "temperature_c", "humidity_pct", "firmware"}` — envoyé par la carte, mesures à `null` sans capteur |
-| GET | `/api/climate?hours=24` | Historique du climat de la box, moyenné en ~288 points, et la plage visée |
+| GET | `/api/climate?hours=24` | Historique du climat de la box, jusqu'à un an, moyenné par tranches de 5 min à 1 jour selon la durée, et la plage visée |
 
 ## Paramètres
 

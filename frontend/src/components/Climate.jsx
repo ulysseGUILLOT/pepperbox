@@ -8,7 +8,17 @@ const POLL_MS = 60000
 const RANGES = [
   { hours: 24, label: '24 h' },
   { hours: 24 * 7, label: '7 j' },
+  { hours: 24 * 30, label: '30 j' },
+  { hours: 24 * 365, label: '1 an' },
 ]
+
+const DAY = 24
+const WEEK = 24 * 8
+const TWO_MONTHS = 24 * 62
+
+// Une etiquette d'axe pour 56 px au plus : sur telephone, un an de mois ne
+// tient pas a raison d'une etiquette par mois.
+const TICK_SPACING_PX = 56
 
 const HEIGHT = 132
 const PAD = { top: 10, right: 10, bottom: 22, left: 38 }
@@ -29,31 +39,64 @@ function niceRange(lo, hi) {
   return { lo: Math.floor(lo / step) * step, hi: Math.ceil(hi / step) * step, step }
 }
 
+// Graduations calees sur le calendrier local : toutes les 6 h, chaque jour,
+// chaque lundi, puis chaque debut de mois.
 function timeTicks(from, to, hours) {
   const ticks = []
   const d = new Date(from * 1000)
   d.setMinutes(0, 0, 0)
-  if (hours <= 48) {
+  let next
+  let label
+  if (hours <= 2 * DAY) {
     d.setHours(Math.ceil(d.getHours() / 6) * 6)
-    for (; d.getTime() / 1000 <= to; d.setHours(d.getHours() + 6)) {
-      ticks.push({ t: d.getTime() / 1000, label: `${String(d.getHours()).padStart(2, '0')}:00` })
-    }
-  } else {
+    next = () => d.setHours(d.getHours() + 6)
+    label = () => `${String(d.getHours()).padStart(2, '0')}:00`
+  } else if (hours <= WEEK) {
     d.setHours(24)
-    for (; d.getTime() / 1000 <= to; d.setDate(d.getDate() + 1)) {
-      ticks.push({
-        t: d.getTime() / 1000,
-        label: d.toLocaleDateString('fr-FR', { weekday: 'short' }),
-      })
-    }
+    next = () => d.setDate(d.getDate() + 1)
+    label = () => d.toLocaleDateString('fr-FR', { weekday: 'short' })
+  } else if (hours <= TWO_MONTHS) {
+    d.setHours(24)
+    d.setDate(d.getDate() + ((8 - d.getDay()) % 7))   // lundi suivant
+    next = () => d.setDate(d.getDate() + 7)
+    label = () => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  } else {
+    d.setHours(0)
+    d.setDate(1)
+    d.setMonth(d.getMonth() + 1)
+    next = () => d.setMonth(d.getMonth() + 1)
+    // Janvier porte l'annee : sur un an glissant, il marque le changement.
+    label = () =>
+      d.getMonth() === 0
+        ? String(d.getFullYear())
+        : d.toLocaleDateString('fr-FR', { month: 'short' })
   }
-  return ticks.filter((tick) => tick.t >= from)
+  for (; d.getTime() / 1000 <= to; next()) {
+    if (d.getTime() / 1000 >= from) ticks.push({ t: d.getTime() / 1000, label: label() })
+  }
+  return ticks
 }
 
+// Garde une graduation sur n quand la largeur ne suffit pas a toutes.
+function thin(ticks, width) {
+  const room = Math.max(2, Math.floor(width / TICK_SPACING_PX))
+  const every = Math.ceil(ticks.length / room)
+  return ticks.filter((_, i) => i % every === 0)
+}
+
+// Precision de l'infobulle a la mesure de la tranche : l'heure n'a plus de
+// sens quand un point moyenne plus d'une journee.
 function when(t, hours) {
   const d = new Date(t * 1000)
   const hhmm = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  return hours <= 48 ? hhmm : `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} ${hhmm}`
+  if (hours <= 2 * DAY) return hhmm
+  if (hours <= WEEK) {
+    return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} ${hhmm}`
+  }
+  if (hours <= TWO_MONTHS) {
+    return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${hhmm}`
+  }
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // Une seule serie par graphique : temperature et humidite n'ont pas la meme
@@ -156,7 +199,7 @@ function Chart({ title, points, field, unit, digits, band, hours, bucket }) {
               ))}
             </g>
             <g className="chart__axis">
-              {timeTicks(from, to, hours).map((tick) => (
+              {thin(timeTicks(from, to, hours), innerW).map((tick) => (
                 <text key={tick.t} x={x(tick.t)} y={HEIGHT - 6}>
                   {tick.label}
                 </text>
