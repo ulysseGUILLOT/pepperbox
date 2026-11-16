@@ -170,26 +170,49 @@ def create_app():
     # changeantes d'un point a l'autre : la courbe zigzaguerait sans raison.
     CLIMATE_BUCKETS = (60, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400)
 
+    # Finesse demandee par le client : un apercu, ou la fenetre zoomee d'un
+    # graphique, qui en veut assez pour descendre a la mesure brute.
+    CLIMATE_MAX_POINTS = 3000
+
     @app.get("/api/climate")
     def get_climate():
-        raw = request.args.get("hours", "24")
-        hours = int(raw) if raw.isdigit() else 0
-        if not 1 <= hours <= CLIMATE_MAX_HOURS:
+        """Une fenetre de l'historique, a la resolution de sa duree.
+
+        ?hours=24 pour les dernieres heures, ou ?from=&to= (secondes epoch)
+        pour la fenetre qu'affiche un graphique apres un zoom. ?points= regle
+        la finesse ; une fenetre assez courte rend la mesure a la minute.
+        """
+        now = time.time()
+        try:
+            points = int(request.args.get("points", CLIMATE_POINTS))
+            if "from" in request.args:
+                start = float(request.args["from"])
+                end = float(request.args.get("to", now))
+            else:
+                hours = int(request.args.get("hours", "24"))
+                start, end = now - hours * 3600, now
+        except ValueError:
+            start = end = points = None
+        if (start is None or not math.isfinite(start) or not math.isfinite(end)
+                or not 60 <= end - start <= CLIMATE_MAX_HOURS * 3600
+                or not 10 <= points <= CLIMATE_MAX_POINTS):
             return jsonify({
                 "error": "requete_invalide",
-                "message": f"'hours' doit etre un entier entre 1 et {CLIMATE_MAX_HOURS}.",
+                "message": "Fenetre de 1 minute a un an ('hours', ou 'from' et 'to' "
+                           f"en secondes epoch), 'points' entre 10 et {CLIMATE_MAX_POINTS}.",
             }), 400
-        # La tranche la plus proche de celle qui donnerait CLIMATE_POINTS
-        # points : 5 min sur 24 h, 30 min sur 7 j, 3 h sur 30 j, 1 jour sur
-        # un an. Jamais moins d'une minute, le rythme des battements.
-        target = hours * 3600 / CLIMATE_POINTS
+        # La tranche la plus proche de celle qui donnerait `points` points :
+        # 5 min sur 24 h a 288 points, la minute en zoomant. Jamais moins
+        # d'une minute, le rythme des battements.
+        target = (end - start) / points
         bucket = min(CLIMATE_BUCKETS, key=lambda b: abs(math.log(b / target)))
         return jsonify({
-            "hours": hours,
+            "from": start,
+            "to": end,
             "bucket_s": bucket,
             "cold_c": app.config["CLIMATE_COLD_C"],
             "hot_c": app.config["CLIMATE_HOT_C"],
-            "points": climate.series(time.time() - hours * 3600, bucket),
+            "points": climate.series(start, bucket, end),
         })
 
     # ---- presence (reseau local uniquement) ----

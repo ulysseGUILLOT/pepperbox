@@ -556,105 +556,21 @@ button {
   }
 }
 
-.climate__charts {
-  display: grid;
-  gap: 20px;
-  margin-top: 12px;
+/* Graphique ECharts : temperature, humidite et barre de navigation
+   partagent ce canevas, d'ou sa hauteur. */
+.climate__chart {
+  height: 380px;
+  margin-top: 8px;
 }
 
-@media (min-width: 900px) {
-  .climate__charts {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+@media (max-width: 640px) {
+  .climate__chart {
+    height: 340px;
   }
 }
 
-.chart {
-  margin: 0;
-  min-width: 0;
-}
-
-.chart__title {
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.chart__plot {
-  position: relative;
-  margin-top: 6px;
-  touch-action: pan-y;
-}
-
-.chart__plot svg {
-  display: block;
-  overflow: visible;
-}
-
-.chart__grid line {
-  stroke: var(--line);
-  stroke-width: 1;
-}
-
-.chart__grid text,
-.chart__axis text {
-  font-family: var(--mono);
-  font-size: 10px;
-  fill: var(--muted);
-}
-
-.chart__grid text {
-  text-anchor: end;
-}
-
-.chart__axis text {
-  text-anchor: middle;
-}
-
-.chart__band {
-  fill: rgba(232, 234, 236, 0.06);
-}
-
-.chart__line {
-  fill: none;
-  stroke: var(--text);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.chart__hover line {
-  stroke: var(--muted);
-  stroke-width: 1;
-}
-
-.chart__hover circle {
-  fill: var(--neon);
-  stroke: var(--panel);
-  stroke-width: 2;
-}
-
-.chart__tip {
-  position: absolute;
-  top: -6px;
-  transform: translate(-50%, -100%);
-  display: flex;
-  gap: 8px;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--raise);
-  font-size: 0.75rem;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.chart__tip-value {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.chart__tip-time {
-  color: var(--muted);
+.climate__help {
+  margin-top: 4px;
 }
 
 /* ---- Peripheriques : la prise et la carte, cote a cote ---- */

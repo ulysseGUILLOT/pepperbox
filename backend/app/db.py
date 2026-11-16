@@ -93,17 +93,31 @@ class Climate:
                 c.execute("DELETE FROM climate WHERE at < ?", (at - self._retention,))
                 self._pruned_at = at
 
-    def series(self, since, bucket):
-        """Moyennes par tranche de `bucket` secondes depuis `since`. AVG
-        ignore les NULL : une mesure manquante ne tire pas la moyenne a zero."""
+    def series(self, since, bucket, until=None):
+        """Moyenne, minimum et maximum par tranche de `bucket` secondes entre
+        `since` et `until`. AVG, MIN et MAX ignorent les NULL : une mesure
+        manquante ne tire pas la moyenne a zero. Le minimum et le maximum
+        gardent l'amplitude que la moyenne efface sur une longue tranche."""
         with self._connect() as c:
             rows = c.execute(
                 "SELECT CAST(at / ? AS INTEGER) * ? AS t, "
-                "AVG(temperature_c) AS temperature_c, AVG(humidity_pct) AS humidity_pct "
-                "FROM climate WHERE at >= ? GROUP BY CAST(at / ? AS INTEGER) ORDER BY t",
-                (bucket, bucket, since, bucket)).fetchall()
+                "AVG(temperature_c) AS t_avg, MIN(temperature_c) AS t_min, "
+                "MAX(temperature_c) AS t_max, AVG(humidity_pct) AS h_avg, "
+                "MIN(humidity_pct) AS h_min, MAX(humidity_pct) AS h_max "
+                "FROM climate WHERE at >= ? AND at < ? "
+                "GROUP BY CAST(at / ? AS INTEGER) ORDER BY t",
+                (bucket, bucket, since, until if until is not None else float("inf"),
+                 bucket)).fetchall()
+
+        def r2(value, digits):
+            return None if value is None else round(value, digits)
+
         return [{
             "t": int(r["t"]),
-            "temperature_c": None if r["temperature_c"] is None else round(r["temperature_c"], 2),
-            "humidity_pct": None if r["humidity_pct"] is None else round(r["humidity_pct"], 1),
+            "temperature_c": r2(r["t_avg"], 2),
+            "temperature_min": r2(r["t_min"], 2),
+            "temperature_max": r2(r["t_max"], 2),
+            "humidity_pct": r2(r["h_avg"], 1),
+            "humidity_min": r2(r["h_min"], 1),
+            "humidity_max": r2(r["h_max"], 1),
         } for r in rows]

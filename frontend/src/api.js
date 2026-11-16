@@ -30,8 +30,12 @@ export const issuePresenceToken = () =>
 
 export const getBox = (signal) => request('/api/box', { signal })
 
-export const getClimate = (hours, signal) =>
-  request(`/api/climate?hours=${hours}`, { signal })
+// Une fenetre de l'historique, en secondes epoch ; `points` regle la finesse.
+export const getClimate = (from, to, points, signal) =>
+  request(
+    `/api/climate?from=${Math.floor(from)}&to=${Math.ceil(to)}&points=${points}`,
+    { signal },
+  )
 
 export const getSettings = (signal) => request('/api/settings', { signal })
 
